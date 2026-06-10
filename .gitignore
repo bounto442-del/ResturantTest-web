@@ -1,0 +1,9 @@
+# Debug / test files
+diag.html
+minimal.html
+test_fetch.html
+test_node.mjs
+*.log
+.DS_Store
+.idea/
+.vscode/
