@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Demo Restaurant — Order Online for Pickup or Delivery</title>
+  <meta name="description" content="Order delicious food for pickup or delivery from our demo restaurant." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍽️%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="app">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen active">
+      <div class="loading-logo">🍗</div>
+      <h1 class="loading-title">Demo Restaurant</h1>
+      <div class="loading-spinner"></div>
+      <p class="loading-sub">Getting things ready...</p>
+    </div>
+
+    <!-- Navbar -->
+    <nav id="navbar" class="navbar">
+      <div class="nav-inner">
+        <a href="#" class="nav-logo" onclick="navigateTo('home')">
+          <span class="logo-wings">🍽️</span>
+          <span class="logo-text">Demo <strong>Restaurant</strong></span>
+        </a>
+        <div class="nav-links">
+          <a href="#" onclick="navigateTo('home')" class="nav-link active" data-screen="home">Menu</a>
+          <a href="#" onclick="navigateTo('track')" class="nav-link" data-screen="track">Track Order</a>
+          <button id="cart-btn" class="cart-btn" onclick="toggleCart()">
+            <i class="fas fa-shopping-bag"></i>
+            <span id="cart-badge" class="cart-badge">0</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main id="main">
+      <!-- HOME / MENU SCREEN -->
+      <div id="screen-home" class="screen active">
+        <!-- Hero Section -->
+        <section class="hero">
+          <div class="hero-overlay"></div>
+          <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=1600&amp;q=80')"></div>
+          <div class="hero-content">
+            <p class="hero-tag">🔥 Open Today</p>
+            <h1 class="hero-title">Hot Wings.<br/>Cold Drinks.<br/><span class="hero-gold">Good Vibes.</span></h1>
+            <p class="hero-desc">Order online for pickup or delivery. Fresh never frozen.</p>
+            <div class="hero-cta">
+              <button class="btn btn-primary btn-lg" onclick="scrollToMenu()">
+                <i class="fas fa-utensils"></i> Order Now
+              </button>
+              <button class="btn btn-outline btn-lg" onclick="navigateTo('track')">
+                <i class="fas fa-map-marker-alt"></i> Track My Order
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Business Info Bar -->
+        <div class="info-bar" id="info-bar">
+          <div class="info-item"><i class="fas fa-clock"></i> <span id="hours-today">Loading hours...</span></div>
+          <div class="info-item"><i class="fas fa-truck"></i> Delivery Available</div>
+          <div class="info-item"><i class="fas fa-phone"></i> (956) 555-0199</div>
+        </div>
+
+        <!-- Category Chips -->
+        <div class="category-bar" id="category-bar">
+          <button class="chip chip-active" data-cat="all">All</button>
+          <button class="chip" data-cat="Wings">Wings</button>
+          <button class="chip" data-cat="Tenders">Tenders</button>
+          <button class="chip" data-cat="Burgers">Burgers</button>
+          <button class="chip" data-cat="Sides">Sides</button>
+          <button class="chip" data-cat="Drinks">Drinks</button>
+        </div>
+
+        <!-- Menu Section -->
+        <section class="menu-section" id="menu-section">
+          <div class="section-header">
+            <h2 class="section-title">Our Menu</h2>
+            <p class="section-sub">Click any item to customize and add to your order.</p>
+          </div>
+          <div class="menu-grid" id="menu-grid">
+            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Loading menu...</div>
+          </div>
+        </section>
+
+        <!-- Promo Banner -->
+        <div id="promo-banner" class="promo-banner hidden">
+          <div class="promo-inner">
+            <span class="promo-icon">🎉</span>
+            <span class="promo-text" id="promo-text">Use code WINGS10 for 10% off!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHECKOUT SCREEN -->
+      <div id="screen-checkout" class="screen">
+        <div class="checkout-hero">
+          <h1 class="checkout-hero-title">Checkout</h1>
+          <p class="checkout-hero-sub">Almost there — review your order below.</p>
+        </div>
+        <div class="checkout-layout">
+          <!-- Left: Form -->
+          <div class="checkout-form-panel">
+            <div class="card">
+              <h3 class="card-title"><i class="fas fa-user"></i> Your Info</h3>
+              <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="c-name" class="input" placeholder="John Doe" />
+              </div>
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" id="c-phone" class="input" placeholder="(956) 555-0100" />
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title"><i class="fas fa-truck"></i> Delivery or Pickup?</h3>
+              <div class="toggle-group">
+                <button id="mode-delivery" class="toggle-btn toggle-active" onclick="setMode('delivery')">
+                  <i class="fas fa-truck"></i> Delivery
+                </button>
+                <button id="mode-pickup" class="toggle-btn" onclick="setMode('pickup')">
+                  <i class="fas fa-store"></i> Pickup
+                </button>
+              </div>
+              <div id="address-block" class="address-block">
+                <div class="form-group">
+                  <label>Street Address</label>
+                  <input type="text" id="c-address" class="input" placeholder="123 Main St" />
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="getGPS()">
+                  <i class="fas fa-location-arrow"></i> Use My Location
+                </button>
+                <p class="gps-status" id="gps-status"></p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title"><i class="fas fa-tag"></i> Promo Code</h3>
+              <div class="promo-row">
+                <input type="text" id="promo-code" class="input" placeholder="Enter code" />
+                <button class="btn btn-secondary" onclick="applyPromo()">Apply</button>
+              </div>
+              <p id="promo-message" class="promo-message"></p>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title"><i class="fas fa-credit-card"></i> Payment</h3>
+              <p class="text-muted">Pay cash or card at pickup / on delivery. No prepayment required.</p>
+            </div>
+          </div>
+
+          <!-- Right: Order Summary -->
+          <div class="checkout-summary-panel">
+            <div class="summary-card sticky">
+              <h3 class="summary-title">Your Order</h3>
+              <div id="checkout-items" class="summary-items"></div>
+              <div class="summary-divider"></div>
+              <div class="summary-row"><span>Subtotal</span><span id="sum-subtotal">$0.00</span></div>
+              <div class="summary-row"><span>Delivery Fee</span><span id="sum-delivery">$0.00</span></div>
+              <div class="summary-row"><span>Tax (8.25%)</span><span id="sum-tax">$0.00</span></div>
+              <div class="summary-row promo hidden" id="sum-discount-row"><span>Discount</span><span id="sum-discount">-$0.00</span></div>
+              <div class="summary-divider"></div>
+              <div class="summary-row total"><span>Total</span><span id="sum-total">$0.00</span></div>
+              <button id="place-order-btn" class="btn btn-primary btn-full btn-lg" onclick="placeOrder()">
+                <i class="fas fa-lock"></i> Place Order
+              </button>
+              <p class="secure-note"><i class="fas fa-shield-alt"></i> Secured by Appwrite</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONFIRMATION SCREEN -->
+      <div id="screen-confirmation" class="screen">
+        <div class="confirm-center">
+          <div class="confirm-icon">🎉</div>
+          <h1 class="confirm-title">Order Placed!</h1>
+          <p class="confirm-id">Order ID: <strong id="confirm-id">--</strong></p>
+          <p class="confirm-msg">We've got your order and are firing up the kitchen. You can track it live below.</p>
+          <div class="confirm-actions">
+            <button class="btn btn-primary btn-lg" onclick="startTrackingFromConfirm()">
+              <i class="fas fa-map-marker-alt"></i> Track My Order
+            </button>
+            <button class="btn btn-outline" onclick="navigateTo('home')">
+              <i class="fas fa-utensils"></i> Order More
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRACK SCREEN -->
+      <div id="screen-track" class="screen">
+        <div class="track-hero">
+          <h1 class="track-title">Track Your Order</h1>
+          <p class="track-sub">Enter your order ID to see live status updates.</p>
+        </div>
+        <div class="track-card">
+          <div class="track-search">
+            <input type="text" id="track-input" class="input input-lg" placeholder="e.g. GW-20260605-001" />
+            <button class="btn btn-primary btn-lg" onclick="trackOrder()">
+              <i class="fas fa-search"></i> Track
+            </button>
+          </div>
+          <div id="track-result" class="track-result hidden">
+            <div class="status-header">
+              <div class="status-badge" id="status-badge">PLACED</div>
+              <div class="status-time" id="status-time">--</div>
+            </div>
+            <div class="timeline" id="timeline"></div>
+            <div id="driver-info" class="driver-info hidden">
+              <div class="driver-avatar">🚗</div>
+              <div class="driver-details">
+                <p class="driver-label">Driver en route</p>
+                <p class="driver-dist" id="driver-dist">--</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="footer-logo">🍗</span>
+          <span class="footer-name">Demo Restaurant</span>
+        </div>
+        <p class="footer-address">City, ST • (555) 123-4567</p>
+        <p class="footer-copy">© 2026 Demo Restaurant. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <!-- CART DRAWER -->
+    <div id="cart-drawer" class="cart-drawer">
+      <div class="cart-overlay" onclick="toggleCart()"></div>
+      <div class="cart-panel">
+        <div class="cart-header">
+          <h2><i class="fas fa-shopping-bag"></i> Your Order</h2>
+          <button class="cart-close" onclick="toggleCart()">✕</button>
+        </div>
+        <div id="cart-items" class="cart-items"></div>
+        <div class="cart-empty" id="cart-empty">
+          <div class="cart-empty-icon">🛒</div>
+          <p>Your cart is empty.</p>
+          <button class="btn btn-outline" onclick="toggleCart()">Browse Menu</button>
+        </div>
+        <div id="cart-footer" class="cart-footer hidden">
+          <div class="cart-row"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
+          <div class="cart-row"><span>Tax</span><span id="cart-tax">$0.00</span></div>
+          <div class="cart-row total"><span>Total</span><span id="cart-total">$0.00</span></div>
+          <button class="btn btn-primary btn-full btn-lg" onclick="goToCheckout()">
+            <i class="fas fa-arrow-right"></i> Checkout
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMIZE MODAL -->
+    <div id="customize-modal" class="modal">
+      <div class="modal-overlay" onclick="closeCustomize()"></div>
+      <div class="modal-panel">
+        <button class="modal-close" onclick="closeCustomize()">✕</button>
+        <div id="customize-body"></div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <!-- Diagnostic fetch test — runs before app.js -->
+  <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
+    <span id="diag-text">Testing connection...</span>
+  </div>
+  <script>
+    (async function diag() {
+      const banner = document.getElementById('diag-banner');
+      const text = document.getElementById('diag-text');
+      banner.style.display = 'block';
+
+      if (window.location.protocol === 'file:') {
+        text.innerHTML = '⚠ Open via server: <code>python -m http.server 8080</code> → <a href="http://localhost:8080" style="color:#fbbf24">http://localhost:8080</a>';
+        banner.style.background = '#7f1d1d';
+        setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 8000);
+        return;
+      }
+
+      const PROJECT = '6a279558003800b0b4d6';
+      const ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
+      const DB = 'gigis-wingshack';
+      const COLL = 'menuItems';
+      const url = `${ENDPOINT}/databases/${DB}/collections/${COLL}/documents?limit=500&project=${PROJECT}`;
+
+      text.textContent = 'GET ' + url;
+      try {
+        const r = await fetch(url, { headers: { 'X-Appwrite-Project': PROJECT } });
+        const body = await r.text();
+        if (r.ok) {
+          const j = JSON.parse(body);
+          text.textContent = `✓ Appwrite OK — ${j.total} items, ${j.documents?.length} returned`;
+          banner.style.background = '#064e3b';
+        } else {
+          text.textContent = `✗ HTTP ${r.status}: ${body.substring(0, 120)}`;
+          banner.style.background = '#7f1d1d';
+        }
+      } catch (e) {
+        text.textContent = `✗ Network/JS Error: ${e.name}: ${e.message}`;
+        banner.style.background = '#7f1d1d';
+      }
+      setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 4000);
+    })();
+  </script>
+
+  <script src="config.js?v=2"></script>
+  <script src="app.js?v=2"></script>
+</body>
+</html>
