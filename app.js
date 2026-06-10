@@ -49,6 +49,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadPromos(),
   ]);
   updateHoursDisplay();
+
+  // Auto-refresh menu every 30s while on home screen
+  setInterval(() => {
+    const homeScreen = document.getElementById('screen-home');
+    if (homeScreen && homeScreen.classList.contains('active')) {
+      loadMenuSilent();
+    }
+  }, 30000);
 });
 
 function hideLoading() {
@@ -145,10 +153,24 @@ async function loadMenu() {
   const grid = document.getElementById('menu-grid');
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Loading menu...</div>';
   try {
-    console.log('Fetching menu from Appwrite...');
-    const res = await awGet(`/databases/${DB_ID}/collections/${MENU_COLL}/documents?limit=500`);
-    console.log('Menu response:', res);
-    menuItems = (res.documents || []).map(d => MenuItem.fromDoc(d)).filter(i => i.available);
+    console.log('Fetching menu from Appwrite (paginated)...');
+    const allDocs = [];
+    let cursorAfter = null;
+    let page = 1;
+    // Appwrite caps at 25/page even with ?limit=500 — paginate with cursorAfter
+    while (true) {
+      const qs = cursorAfter
+        ? `?limit=100&cursorAfter=${cursorAfter}`
+        : `?limit=100`;
+      const res = await awGet(`/databases/${DB_ID}/collections/${MENU_COLL}/documents${qs}`);
+      const docs = res.documents || [];
+      allDocs.push(...docs);
+      console.log(`Page ${page}: fetched ${docs.length} docs (total so far: ${allDocs.length})`);
+      if (docs.length === 0 || allDocs.length >= res.total) break;
+      cursorAfter = docs[docs.length - 1].$id;
+      page++;
+    }
+    menuItems = allDocs.map(d => MenuItem.fromDoc(d)).filter(i => i.available);
     console.log(`Loaded ${menuItems.length} menu items`);
     if (menuItems.length === 0) {
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Menu is empty. Add items in the owner app.</div>';
@@ -213,7 +235,8 @@ function renderMenu(category) {
   grid.innerHTML = items.map(item => `
     <div class="menu-card" onclick="openCustomize('${item.id}')">
       <div class="menu-card-image">
-        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${esc(item.name)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${esc(item.name)}" loading="lazy" onerror="this.style.display='none'; this.parentElement.querySelector('.menu-emoji').style.display='flex';">` : ''}
+        <div class="menu-emoji" style="display:${item.imageUrl ? 'none' : 'flex'};position:absolute;inset:0;align-items:center;justify-content:center;font-size:48px;background:var(--surface-2);">${item.emoji}</div>
         ${item.trending ? `<span class="menu-card-badge">Trending</span>` : ''}
       </div>
       <div class="menu-card-body">
