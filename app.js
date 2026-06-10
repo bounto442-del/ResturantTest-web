@@ -235,8 +235,8 @@ function renderMenu(category) {
   grid.innerHTML = items.map(item => `
     <div class="menu-card" onclick="openCustomize('${item.id}')">
       <div class="menu-card-image">
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:48px;">${item.emoji}</div>
-        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${esc(item.name)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:var(--surface-2);z-index:0;">${item.emoji || '🍽️'}</div>
+        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${esc(item.name)}" loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;" onerror="this.style.display='none'">` : ''}
         ${item.trending ? `<span class="menu-card-badge">Trending</span>` : ''}
       </div>
       <div class="menu-card-body">
