@@ -11,6 +11,7 @@ const TABLE_PROMOS = ENV.tablePromos || 'promos';
 const TABLE_SETTINGS = ENV.tableSettings || 'settings';
 
 const TAX_RATE = 0.0825;
+const CATEGORY_LIMIT = 6; // show at most 6 items per category; "See all" expands
 let menuItems = [];
 let cart = [];
 let currentPromo = null;
@@ -228,7 +229,10 @@ function setupCategories() {
 function renderMenu(category) {
   const grid = document.getElementById('menu-grid');
   const items = category === 'all' ? menuItems : menuItems.filter(i => i.category === category);
-  grid.innerHTML = items.map(item => `
+  const expanded = category !== 'all' && expandedCats.has(category);
+  const visible = expanded || category === 'all' ? items : items.slice(0, CATEGORY_LIMIT);
+  const overflow = items.length - visible.length;
+  const cards = visible.map(item => `
     <div class="menu-card" onclick="openCustomize('${item.id}')">
       <div class="menu-card-image">
         <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:var(--surface-2);z-index:0;">${item.emoji || '🍽️'}</div>
@@ -245,6 +249,17 @@ function renderMenu(category) {
       </div>
     </div>
   `).join('');
+  const seeAll = (category !== 'all' && overflow > 0)
+    ? `<div class="see-all-row" onclick="toggleSeeAll('${category}')">${expanded ? 'Show less' : `See all (${items.length})`}</div>`
+    : '';
+  grid.innerHTML = cards + seeAll;
+}
+
+const expandedCats = new Set();
+function toggleSeeAll(category) {
+  if (expandedCats.has(category)) expandedCats.delete(category);
+  else expandedCats.add(category);
+  renderMenu(category);
 }
 
 function scrollToMenu() {
