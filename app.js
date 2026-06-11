@@ -1,17 +1,14 @@
 /**
  * Demo Restaurant — Customer Ordering Web App
- * Real Appwrite REST backend. No WebSockets.
+ * Supabase REST backend. No WebSockets.
  */
 
-const PROJECT_ID = ENV.appwriteProjectId || 'gigis-wingshack';
-const API_KEY = ENV.appwriteApiKey || '';
-const ENDPOINT = ENV.appwriteEndpoint || 'https://cloud.appwrite.io/v1';
-const DB_ID = ENV.appwriteDatabaseId || 'gigis-wingshack';
-const MENU_COLL = ENV.collectionMenuItems || 'menu';
-const ORDERS_COLL = ENV.collectionOrders || 'orders';
-const PROMOS_COLL = ENV.collectionPromos || 'promos';
-const SETTINGS_COLL = ENV.collectionSettings || 'settings';
-const BUCKET_ID = ENV.bucketMenuImages || 'menu-images';
+const SUPABASE_URL = ENV.supabaseUrl;
+const SUPABASE_KEY = ENV.supabaseKey;
+const TABLE_MENU = ENV.tableMenuItems || 'menu_items';
+const TABLE_ORDERS = ENV.tableOrders || 'orders';
+const TABLE_PROMOS = ENV.tablePromos || 'promos';
+const TABLE_SETTINGS = ENV.tableSettings || 'settings';
 
 const TAX_RATE = 0.0825;
 let menuItems = [];
@@ -72,69 +69,64 @@ function showToast(msg) {
 }
 
 // ─── REST Helpers ───
-function _headers(extra = {}) {
-  const h = {
-    'X-Appwrite-Project': PROJECT_ID,
+function _sbHeaders(extra = {}) {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
     ...extra,
   };
-  if (API_KEY) h['X-Appwrite-Key'] = API_KEY;
-  return h;
 }
 
-async function awGet(path) {
-  // Appwrite accepts project ID via header OR query param. Use both.
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
+async function sbGet(path) {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
   console.log('GET', url);
-  const r = await fetch(url, { headers: _headers() });
+  const r = await fetch(url, { headers: _sbHeaders() });
   const text = await r.text();
   console.log('Response', r.status, text.substring(0, 200));
   if (!r.ok) throw new Error(`${r.status}: ${text}`);
-  try { return JSON.parse(text); } catch { return text; }
+  // Supabase returns array directly for SELECT
+  return JSON.parse(text);
 }
 
-async function awPost(path, body) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
+async function sbPost(path, body, prefer = 'return=representation') {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
   const r = await fetch(url, {
     method: 'POST',
-    headers: _headers({ 'Content-Type': 'application/json' }),
+    headers: _sbHeaders({
+      'Content-Type': 'application/json',
+      'Prefer': prefer,
+    }),
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-  return r.json();
+  // When return=representation, response is the inserted row(s)
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
 }
 
-async function awPatch(path, body) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
+async function sbPatch(path, body) {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
   const r = await fetch(url, {
     method: 'PATCH',
-    headers: _headers({ 'Content-Type': 'application/json' }),
+    headers: _sbHeaders({
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    }),
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-  return r.json();
-}
-
-async function awDelete(path) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
-  const r = await fetch(url, {
-    method: 'DELETE',
-    headers: _headers(),
-  });
-  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-  return r.ok;
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
 }
 
 // ─── Settings ───
 async function loadSettings() {
   try {
-    const res = await awGet(`/databases/${DB_ID}/collections/${SETTINGS_COLL}/documents`);
-    const doc = res.documents?.[0];
+    // Supabase returns an array; settings is a singleton (id=1)
+    const rows = await sbGet(`${TABLE_SETTINGS}?select=*&limit=1`);
+    const doc = rows?.[0];
     if (doc) {
-      deliveryFee = doc.deliveryFee ?? 399;
+      deliveryFee = doc.delivery_fee ?? 399;
       const el = document.getElementById('sum-delivery');
       if (el) el.textContent = fmtMoney(deliveryFee);
     }
@@ -153,24 +145,11 @@ async function loadMenu() {
   const grid = document.getElementById('menu-grid');
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Loading menu...</div>';
   try {
-    console.log('Fetching menu from Appwrite (paginated)...');
-    const allDocs = [];
-    let cursorAfter = null;
-    let page = 1;
-    // Appwrite caps at 25/page even with ?limit=500 — paginate with cursorAfter
-    while (true) {
-      const qs = cursorAfter
-        ? `?limit=100&cursorAfter=${cursorAfter}`
-        : `?limit=100`;
-      const res = await awGet(`/databases/${DB_ID}/collections/${MENU_COLL}/documents${qs}`);
-      const docs = res.documents || [];
-      allDocs.push(...docs);
-      console.log(`Page ${page}: fetched ${docs.length} docs (total so far: ${allDocs.length})`);
-      if (docs.length === 0 || allDocs.length >= res.total) break;
-      cursorAfter = docs[docs.length - 1].$id;
-      page++;
-    }
-    menuItems = allDocs.map(d => MenuItem.fromDoc(d)).filter(i => i.available);
+    console.log('Fetching menu from Supabase...');
+    // Supabase supports order, limit, and eq filters via query string
+    const docs = await sbGet(`${TABLE_MENU}?select=*&order=name.asc&limit=1000`);
+    console.log(`Fetched ${docs.length} docs from Supabase`);
+    menuItems = docs.map(d => MenuItem.fromDoc(d)).filter(i => i.available);
     console.log(`Loaded ${menuItems.length} menu items`);
     if (menuItems.length === 0) {
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Menu is empty. Add items in the owner app.</div>';
@@ -194,21 +173,38 @@ async function loadMenu() {
   }
 }
 
+// Silent re-fetch for the 30s auto-refresh — doesn't show the loading grid.
+async function loadMenuSilent() {
+  try {
+    const docs = await sbGet(`${TABLE_MENU}?select=*&order=name.asc&limit=1000`);
+    const fresh = docs.map(d => MenuItem.fromDoc(d)).filter(i => i.available);
+    if (fresh.length !== menuItems.length) {
+      menuItems = fresh;
+      const activeChip = document.querySelector('.chip.chip-active');
+      const cat = activeChip ? activeChip.dataset.cat : 'all';
+      renderMenu(cat);
+    }
+  } catch (e) { /* ignore — try again in 30s */ }
+}
+
 class MenuItem {
   constructor(data) { Object.assign(this, data); }
   static fromDoc(d) {
+    // Supabase row is snake_case. The order/menu screen uses camelCase field names;
+    // normalize here so the rest of app.js doesn't need to change.
     return new MenuItem({
-      id: d.$id,
+      id: d.id,
       name: d.name || 'Item',
       description: d.description || '',
       price: d.price || 0,
       category: d.category || 'Other',
       available: d.available ?? true,
-      imageUrl: d.imageUrl || '',
+      imageUrl: d.image_url || '',
       emoji: d.emoji || '🍽️',
-      trending: d.trending ?? false,
-      sauces: parseJSON(d.sauces) || [],
-      addons: parseJSON(d.addons) || [],
+      trending: d.is_trending ?? false,
+      isNew: d.is_new ?? false,
+      sauces: Array.isArray(d.sauces) ? d.sauces : parseJSON(d.sauces) || [],
+      addons: Array.isArray(d.addons) ? d.addons : parseJSON(d.addons) || [],
     });
   }
 }
@@ -458,11 +454,12 @@ async function applyPromo() {
   const msg = document.getElementById('promo-message');
   if (!code) { msg.textContent = 'Enter a code'; msg.style.color = 'var(--text-muted)'; return; }
   try {
-    const res = await awGet(`/databases/${DB_ID}/collections/${PROMOS_COLL}/documents?limit=100`);
-    const doc = (res.documents || []).find(d => (d.code || '').toUpperCase() === code);
+    // Supabase: filter by code (case-insensitive via ilike) and active
+    const docs = await sbGet(`${TABLE_PROMOS}?select=*&code=ilike.${encodeURIComponent(code)}&limit=1`);
+    const doc = docs?.[0];
     if (!doc) { msg.textContent = 'Invalid code'; msg.style.color = 'var(--primary)'; return; }
     if (!doc.active) { msg.textContent = 'Code expired'; msg.style.color = 'var(--primary)'; return; }
-    currentPromo = { code: doc.code, discountPercent: doc.discountPercent || 10 };
+    currentPromo = { code: doc.code, discountPercent: doc.discount_percent || 10 };
     msg.textContent = `✓ ${currentPromo.discountPercent}% off applied`;
     msg.style.color = '#22c55e';
     renderCheckoutSummary();
@@ -506,34 +503,31 @@ async function placeOrder() {
   const oid = generateOrderId();
 
   const payload = {
-    documentId: oid,
-    data: {
-      orderId: oid,
-      customerName: name,
-      customerPhone: phone,
-      address: orderMode === 'delivery' ? address : 'Pickup',
-      mode: orderMode,
-      items: JSON.stringify(cart.map(c => ({
-        name: c.name,
-        qty: c.qty,
-        price: c.price,
-        sauce: c.sauce,
-        selectedAddons: c.selectedAddons,
-        specialInstructions: c.specialInstructions,
-      }))),
-      subtotal,
-      tax,
-      deliveryFee: delivery,
-      discount: disc,
-      promoCode: currentPromo?.code || '',
-      total,
-      status: 'placed',
-      createdAt: new Date().toISOString(),
-    },
+    order_id: oid,
+    customer_name: name,
+    customer_phone: phone,
+    address: orderMode === 'delivery' ? address : 'Pickup',
+    mode: orderMode,
+    items: cart.map(c => ({
+      name: c.name,
+      qty: c.qty,
+      price: c.price,
+      sauce: c.sauce,
+      selectedAddons: c.selectedAddons,
+      specialInstructions: c.specialInstructions,
+    })),
+    subtotal,
+    tax,
+    delivery_fee: delivery,
+    discount: disc,
+    promo_code: currentPromo?.code || '',
+    total,
+    status: 'placed',
   };
 
   try {
-    await awPost(`/databases/${DB_ID}/collections/${ORDERS_COLL}/documents`, payload);
+    // Supabase: POST to orders table. body is the row directly.
+    await sbPost(TABLE_ORDERS, payload, 'return=minimal');
     cart = [];
     currentPromo = null;
     currentOrderId = oid;
@@ -569,16 +563,19 @@ async function trackOrder() {
   if (!id) { showToast('Enter an order ID'); return; }
   result.classList.add('hidden');
   try {
-    const doc = await awGet(`/databases/${DB_ID}/collections/${ORDERS_COLL}/documents/${id}`);
+    // Supabase: filter by order_id, return single row
+    const rows = await sbGet(`${TABLE_ORDERS}?select=*&order_id=eq.${encodeURIComponent(id)}&limit=1`);
+    const doc = rows?.[0];
+    if (!doc) { showToast('Order not found'); return; }
     result.classList.remove('hidden');
     const st = doc.status || 'placed';
     document.getElementById('status-badge').textContent = st.toUpperCase();
-    document.getElementById('status-time').textContent = timeAgo(doc.$createdAt);
+    document.getElementById('status-time').textContent = timeAgo(doc.created_at);
     renderTimeline(st);
 
     const driverEl = document.getElementById('driver-info');
     const distEl = document.getElementById('driver-dist');
-    if (st === 'out_for_delivery' && doc.driverLat && doc.driverLng) {
+    if (st === 'out_for_delivery' && doc.driver_lat && doc.driver_lng) {
       driverEl.classList.remove('hidden');
       distEl.textContent = 'Driver location updated';
     } else {
@@ -598,7 +595,9 @@ async function trackOrder() {
 
 async function pollOrder(id) {
   try {
-    const doc = await awGet(`/databases/${DB_ID}/collections/${ORDERS_COLL}/documents/${id}`);
+    const rows = await sbGet(`${TABLE_ORDERS}?select=*&order_id=eq.${encodeURIComponent(id)}&limit=1`);
+    const doc = rows?.[0];
+    if (!doc) return;
     const st = doc.status || 'placed';
     document.getElementById('status-badge').textContent = st.toUpperCase();
     renderTimeline(st);
@@ -629,13 +628,12 @@ function renderTimeline(status) {
 // ─── Promos ───
 async function loadPromos() {
   try {
-    const res = await awGet(`/databases/${DB_ID}/collections/${PROMOS_COLL}/documents?limit=100`);
-    const docs = (res.documents || []).filter(d => d.active);
+    const docs = await sbGet(`${TABLE_PROMOS}?select=*&active=eq.true&limit=100`);
     const banner = document.getElementById('promo-banner');
     const text = document.getElementById('promo-text');
     if (docs.length) {
       banner.classList.remove('hidden');
-      text.textContent = `Use code ${docs[0].code} for ${docs[0].discountPercent || 10}% off!`;
+      text.textContent = `Use code ${docs[0].code} for ${docs[0].discount_percent || 10}% off!`;
     }
   } catch (e) { console.warn('Promo load failed', e); }
 }
