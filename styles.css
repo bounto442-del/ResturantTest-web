@@ -106,6 +106,21 @@ html, body { font-family: var(--font-body); background: var(--surface); color: v
 .menu-card-btn { background: var(--primary); color: var(--white); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: background 0.2s; }
 .menu-card-btn:hover { background: var(--primary-dark); }
 
+.see-all-row {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 18px 12px;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  border: 1px dashed var(--surface-2);
+  border-radius: 12px;
+  margin-top: 4px;
+  transition: all 0.2s;
+}
+.see-all-row:hover { background: var(--surface-2); border-color: var(--primary); }
+
 /* Promo Banner */
 .promo-banner { background: linear-gradient(90deg, var(--gold-dark), var(--gold)); padding: 12px 20px; text-align: center; }
 .promo-inner { display: inline-flex; align-items: center; gap: 8px; }
