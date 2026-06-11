@@ -172,7 +172,7 @@
               <button id="place-order-btn" class="btn btn-primary btn-full btn-lg" onclick="placeOrder()">
                 <i class="fas fa-lock"></i> Place Order
               </button>
-              <p class="secure-note"><i class="fas fa-shield-alt"></i> Secured by Appwrite</p>
+              <p class="secure-note"><i class="fas fa-shield-alt"></i> Secured by Supabase</p>
             </div>
           </div>
         </div>
@@ -294,19 +294,22 @@
         return;
       }
 
-      const PROJECT = '6a279558003800b0b4d6';
-      const ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
-      const DB = 'gigis-wingshack';
-      const COLL = 'menuItems';
-      const url = `${ENDPOINT}/databases/${DB}/collections/${COLL}/documents?limit=500&project=${PROJECT}`;
+      const SUPABASE_URL = (typeof ENV !== 'undefined' && ENV.supabaseUrl) || 'https://wkohvggqwxowijbgdrbt.supabase.co';
+      const SUPABASE_KEY = (typeof ENV !== 'undefined' && ENV.supabaseKey) || '';
+      const url = `${SUPABASE_URL}/rest/v1/menu_items?select=id&limit=1`;
 
       text.textContent = 'GET ' + url;
       try {
-        const r = await fetch(url, { headers: { 'X-Appwrite-Project': PROJECT } });
+        const r = await fetch(url, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          },
+        });
         const body = await r.text();
         if (r.ok) {
           const j = JSON.parse(body);
-          text.textContent = `✓ Appwrite OK — ${j.total} items, ${j.documents?.length} returned`;
+          text.textContent = `✓ Supabase OK — ${Array.isArray(j) ? j.length + ' row(s) returned' : 'connected'}`;
           banner.style.background = '#064e3b';
         } else {
           text.textContent = `✗ HTTP ${r.status}: ${body.substring(0, 120)}`;
@@ -320,7 +323,7 @@
     })();
   </script>
 
-  <script src="config.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <script src="config.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
