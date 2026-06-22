@@ -212,3 +212,19 @@ NEXT STEPS TO TEST:
 6. Verify order appears on the connected Clover POS device.
 
 NEXT TURN: [other session / user]
+
+STATUS UPDATE FROM CLOVER SESSION:
+- Wired the manual API token connection handler (onConnectWithToken) in app.js.
+- Fixed Clover.listDevices reference in clover.js.
+- Bumped web app build/cache-bust to v11 and pushed to GitHub (commit 4fdc275).
+- Verified backend is running on http://localhost:3001.
+- Verified sandbox API token + merchant 077GSWKBQZAR1 are valid against apisandbox.dev.clover.com.
+- Current blocker: Supabase project wkohvggqwxojbgdrbt still lacks the api_token_encrypted column on public.merchants, so POST /api/auth/token fails with "Could not find the 'api_token_encrypted' column".
+
+NEXT ACTION NEEDED:
+1. Re-run D:\Clover_App_and_GUI\supabase\migrations\001_initial_schema.sql in the Supabase SQL Editor (it is non-destructive and adds api_token_encrypted).
+2. Open the web app (prefer http://localhost:8080 via python -m http.server 8080 to avoid HTTPS mixed-content issues).
+3. Owner Dashboard → Clover → enter Merchant ID 077GSWKBQZAR1 and the sandbox API token, then click Connect with Token.
+4. After connection, scan devices, pull/push menu, and test a pay-in-person order push.
+
+NEXT TURN: [user / other session]
