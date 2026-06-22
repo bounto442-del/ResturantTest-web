@@ -3,30 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Gigi's WingShack — Harlingen TX | Order Wings, Burgers &amp; More Online</title>
-  <meta name="description" content="Order hot wings, smash burgers, tenders, and sides for pickup or delivery from Gigi's WingShack in Harlingen, Texas." />
+  <title>Demo Restaurant — Order Online for Pickup or Delivery</title>
+  <meta name="description" content="Order delicious food for pickup or delivery from our demo restaurant." />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
-  <link rel="icon" type="image/png" href="https://gigiswingshack.com/favicon.ico" />
+  <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍽️%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
   <div id="app">
     <!-- Loading Screen -->
     <div id="loading-screen" class="loading-screen active">
       <div class="loading-logo">🍗</div>
-      <h1 class="loading-title">Gigi's WingShack</h1>
+      <h1 class="loading-title">Demo Restaurant</h1>
       <div class="loading-spinner"></div>
-      <p class="loading-sub">Firing up the fryers...</p>
+      <p class="loading-sub">Getting things ready...</p>
     </div>
 
     <!-- Navbar -->
     <nav id="navbar" class="navbar">
       <div class="nav-inner">
         <a href="#" class="nav-logo" onclick="navigateTo('home')">
-          <span class="logo-wings">🍗</span>
-          <span class="logo-text">Gigi's <strong>WingShack</strong></span>
+          <span class="logo-wings">🍽️</span>
+          <span class="logo-text">Demo <strong>Restaurant</strong></span>
         </a>
         <div class="nav-links">
           <a href="#" onclick="navigateTo('home')" class="nav-link active" data-screen="home">Menu</a>
@@ -46,9 +46,9 @@
         <!-- Hero Section -->
         <section class="hero">
           <div class="hero-overlay"></div>
-          <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=1600&amp;q=80')"></div>
+          <div class="hero-bg" style="background-image:url('https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600&amp;q=60')"></div>
           <div class="hero-content">
-            <p class="hero-tag">🔥 Harlingen, TX • Open Today</p>
+            <p class="hero-tag">🔥 Open Today</p>
             <h1 class="hero-title">Hot Wings.<br/>Cold Drinks.<br/><span class="hero-gold">Good Vibes.</span></h1>
             <p class="hero-desc">Order online for pickup or delivery. Fresh never frozen.</p>
             <div class="hero-cta">
@@ -69,13 +69,18 @@
           <div class="info-item"><i class="fas fa-phone"></i> (956) 555-0199</div>
         </div>
 
-        <!-- Category Chips -->
+        <!-- Category Chips — match the categories in Supabase -->
         <div class="category-bar" id="category-bar">
           <button class="chip chip-active" data-cat="all">All</button>
           <button class="chip" data-cat="Wings">Wings</button>
-          <button class="chip" data-cat="Tenders">Tenders</button>
           <button class="chip" data-cat="Burgers">Burgers</button>
-          <button class="chip" data-cat="Sides">Sides</button>
+          <button class="chip" data-cat="Sandwiches">Sandwiches</button>
+          <button class="chip" data-cat="Appetizers">Appetizers</button>
+          <button class="chip" data-cat="Fish &amp; Tacos">Fish &amp; Tacos</button>
+          <button class="chip" data-cat="Plates">Plates</button>
+          <button class="chip" data-cat="Salads">Salads</button>
+          <button class="chip" data-cat="Kids Meals">Kids</button>
+          <button class="chip" data-cat="Desserts">Desserts</button>
           <button class="chip" data-cat="Drinks">Drinks</button>
         </div>
 
@@ -172,7 +177,7 @@
               <button id="place-order-btn" class="btn btn-primary btn-full btn-lg" onclick="placeOrder()">
                 <i class="fas fa-lock"></i> Place Order
               </button>
-              <p class="secure-note"><i class="fas fa-shield-alt"></i> Secured by Appwrite</p>
+              <p class="secure-note"><i class="fas fa-shield-alt"></i> Secured by Supabase</p>
             </div>
           </div>
         </div>
@@ -204,7 +209,7 @@
         </div>
         <div class="track-card">
           <div class="track-search">
-            <input type="text" id="track-input" class="input input-lg" placeholder="e.g. GW-20260605-001" />
+            <input type="text" id="track-input" class="input input-lg" placeholder="e.g. DEMO-20260605-001" />
             <button class="btn btn-primary btn-lg" onclick="trackOrder()">
               <i class="fas fa-search"></i> Track
             </button>
@@ -232,10 +237,13 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <span class="footer-logo">🍗</span>
-          <span class="footer-name">Gigi's WingShack</span>
+          <span class="footer-name">Demo Restaurant</span>
         </div>
-        <p class="footer-address">Harlingen, TX • (956) 555-0199</p>
-        <p class="footer-copy">© 2026 Gigi's WingShack. All rights reserved.</p>
+        <p class="footer-address">City, ST • (555) 123-4567</p>
+        <p class="footer-copy">© 2026 Demo Restaurant. All rights reserved.</p>
+        <button class="btn btn-sm owner-login-btn" onclick="showOwnerLogin()">
+          <i class="fas fa-lock"></i> Owner Dashboard
+        </button>
       </div>
     </footer>
 
@@ -273,6 +281,103 @@
       </div>
     </div>
 
+    <!-- OWNER LOGIN MODAL -->
+    <div id="owner-login-modal" class="modal">
+      <div class="modal-overlay" onclick="closeOwnerLogin()"></div>
+      <div class="modal-panel modal-sm">
+        <button class="modal-close" onclick="closeOwnerLogin()">✕</button>
+        <h2 class="customize-title">Owner Sign In</h2>
+        <p class="customize-desc">Sign in with your Supabase owner account to manage orders, menu, and settings.</p>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="owner-email" class="input" placeholder="owner@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="owner-password" class="input" placeholder="••••••••" />
+        </div>
+        <button class="add-btn" onclick="ownerLogin()">Sign In</button>
+        <p id="owner-login-error" class="promo-message" style="color:var(--primary);margin-top:8px"></p>
+      </div>
+    </div>
+
+    <!-- OWNER SHELL -->
+    <div id="owner-shell" class="owner-shell hidden">
+      <aside class="owner-side">
+        <div class="owner-brand">
+          <span class="owner-brand-logo">🍗</span>
+          <div>
+            <div class="owner-brand-name">Demo Restaurant</div>
+            <div class="owner-build">Build <span id="owner-build-tag">--</span></div>
+          </div>
+        </div>
+        <nav class="owner-nav">
+          <button class="active" data-owner="orders" onclick="switchOwnerView('orders')">
+            <span>📋</span> <span>Orders</span>
+          </button>
+          <button data-owner="menu" onclick="switchOwnerView('menu')">
+            <span>🍽️</span> <span>Menu</span>
+          </button>
+          <button data-owner="combos" onclick="switchOwnerView('combos')">
+            <span>🎁</span> <span>Combos</span>
+          </button>
+          <button data-owner="promos" onclick="switchOwnerView('promos')">
+            <span>🏷️</span> <span>Promos</span>
+          </button>
+          <button data-owner="settings" onclick="switchOwnerView('settings')">
+            <span>⚙️</span> <span>Settings</span>
+          </button>
+          <button onclick="ownerLogout()">
+            <span>🚪</span> <span>Logout</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="owner-main">
+        <!-- Orders Board -->
+        <div id="owner-view-orders" class="owner-view active">
+          <h2 class="owner-view-title">Live Orders <span id="owner-orders-count"></span></h2>
+          <div class="owner-board" id="owner-board"></div>
+        </div>
+
+        <!-- Menu Manager (stubbed for Clover sync) -->
+        <div id="owner-view-menu" class="owner-view">
+          <div class="owner-menu-header">
+            <h2 class="owner-view-title">Menu Manager</h2>
+            <button class="btn btn-primary btn-sm" onclick="openMenuEditor()">+ Add Item</button>
+          </div>
+          <div class="owner-note">
+            ⚠️ Menu sync is handled by the Clover integration. Adding or editing items here is currently disabled to avoid conflicts. Use the Clover sync tool to update the menu.
+          </div>
+          <div class="owner-menu-table" id="owner-menu-table"></div>
+        </div>
+
+        <!-- Combos -->
+        <div id="owner-view-combos" class="owner-view">
+          <div class="owner-menu-header">
+            <h2 class="owner-view-title">Combo Deals</h2>
+            <button class="btn btn-primary btn-sm" onclick="openComboEditor()">+ Add Combo</button>
+          </div>
+          <div class="owner-menu-table" id="owner-combos-table"></div>
+        </div>
+
+        <!-- Promos -->
+        <div id="owner-view-promos" class="owner-view">
+          <div class="owner-menu-header">
+            <h2 class="owner-view-title">Promo Codes</h2>
+            <button class="btn btn-primary btn-sm" onclick="openPromoEditor()">+ Add Promo</button>
+          </div>
+          <div class="owner-menu-table" id="owner-promos-table"></div>
+        </div>
+
+        <!-- Settings -->
+        <div id="owner-view-settings" class="owner-view">
+          <h2 class="owner-view-title">Settings</h2>
+          <div class="owner-settings-grid" id="owner-settings-grid"></div>
+        </div>
+      </main>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast"></div>
   </div>
@@ -281,46 +386,55 @@
   <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
     <span id="diag-text">Testing connection...</span>
   </div>
+  <script src="config.js?v=7"></script>
+  <script src="app.js?v=7"></script>
   <script>
+    // Diagnostic fetch test — runs after config.js so ENV is available.
     (async function diag() {
       const banner = document.getElementById('diag-banner');
       const text = document.getElementById('diag-text');
+      if (!banner) return;
       banner.style.display = 'block';
 
       if (window.location.protocol === 'file:') {
-        text.innerHTML = '⚠ Open via server: <code>python -m http.server 8080</code> → <a href="http://localhost:8080" style="color:#fbbf24">http://localhost:8080</a>';
+        text.innerHTML = 'Open via server: <code>python -m http.server 8080</code> then <a href="http://localhost:8080" style="color:#fbbf24">http://localhost:8080</a>';
         banner.style.background = '#7f1d1d';
         setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 8000);
         return;
       }
 
-      const PROJECT = '6a279558003800b0b4d6';
-      const ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
-      const DB = 'gigis-wingshack';
-      const COLL = 'menuItems';
-      const url = `${ENDPOINT}/databases/${DB}/collections/${COLL}/documents?limit=500&project=${PROJECT}`;
+      const SUPABASE_URL = (typeof ENV !== 'undefined' && ENV.supabaseUrl) || 'https://wkohvggqwxowijbgdrbt.supabase.co';
+      const SUPABASE_KEY = (typeof ENV !== 'undefined' && ENV.supabaseKey) || '';
+      if (!SUPABASE_KEY) {
+        text.textContent = 'Supabase key missing in config.js';
+        banner.style.background = '#7f1d1d';
+        return;
+      }
+      const url = `${SUPABASE_URL}/rest/v1/menu_items?select=id&limit=1`;
 
       text.textContent = 'GET ' + url;
       try {
-        const r = await fetch(url, { headers: { 'X-Appwrite-Project': PROJECT } });
+        const r = await fetch(url, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+          },
+        });
         const body = await r.text();
         if (r.ok) {
           const j = JSON.parse(body);
-          text.textContent = `✓ Appwrite OK — ${j.total} items, ${j.documents?.length} returned`;
+          text.textContent = 'Supabase OK — ' + (Array.isArray(j) ? j.length + ' row(s)' : 'connected');
           banner.style.background = '#064e3b';
         } else {
-          text.textContent = `✗ HTTP ${r.status}: ${body.substring(0, 120)}`;
+          text.textContent = 'HTTP ' + r.status + ': ' + body.substring(0, 120);
           banner.style.background = '#7f1d1d';
         }
       } catch (e) {
-        text.textContent = `✗ Network/JS Error: ${e.name}: ${e.message}`;
+        text.textContent = 'Network/JS Error: ' + e.name + ': ' + e.message;
         banner.style.background = '#7f1d1d';
       }
-      setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 4000);
+      setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 1500);
     })();
   </script>
-
-  <script src="config.js?v=2"></script>
-  <script src="app.js?v=2"></script>
 </body>
 </html>

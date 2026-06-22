@@ -1,19 +1,17 @@
 /**
- * Gigi's WingShack — Customer Ordering Web App
- * Real Appwrite REST backend. No WebSockets.
+ * Demo Restaurant — Customer Ordering Web App
+ * Supabase REST backend. No WebSockets.
  */
 
-const PROJECT_ID = ENV.appwriteProjectId || 'gigis-wingshack';
-const API_KEY = ENV.appwriteApiKey || '';
-const ENDPOINT = ENV.appwriteEndpoint || 'https://cloud.appwrite.io/v1';
-const DB_ID = ENV.appwriteDatabaseId || 'gigis-wingshack';
-const MENU_COLL = ENV.collectionMenuItems || 'menu';
-const ORDERS_COLL = ENV.collectionOrders || 'orders';
-const PROMOS_COLL = ENV.collectionPromos || 'promos';
-const SETTINGS_COLL = ENV.collectionSettings || 'settings';
-const BUCKET_ID = ENV.bucketMenuImages || 'menu-images';
+const SUPABASE_URL = ENV.supabaseUrl;
+const SUPABASE_KEY = ENV.supabaseKey;
+const TABLE_MENU = ENV.tableMenuItems || 'menu_items';
+const TABLE_ORDERS = ENV.tableOrders || 'orders';
+const TABLE_PROMOS = ENV.tablePromos || 'promos';
+const TABLE_SETTINGS = ENV.tableSettings || 'settings';
 
 const TAX_RATE = 0.0825;
+const CATEGORY_LIMIT = 6; // show at most 6 items per category; "See all" expands
 let menuItems = [];
 let cart = [];
 let currentPromo = null;
@@ -38,12 +36,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideLoading();
     return;
   }
-  await loadSettings();
-  await loadMenu();
-  await loadPromos();
+  // Load settings and promos in parallel; menu is the critical path
+  const menuPromise = loadMenu().then(() => {
+    hideLoading();
+    setupCategories();
+  });
+  await Promise.all([
+    menuPromise,
+    loadSettings(),
+    loadPromos(),
+  ]);
   updateHoursDisplay();
-  hideLoading();
-  setupCategories();
+
+  // Auto-refresh menu every 30s while on home screen
+  setInterval(() => {
+    const homeScreen = document.getElementById('screen-home');
+    if (homeScreen && homeScreen.classList.contains('active')) {
+      loadMenuSilent();
+    }
+  }, 30000);
 });
 
 function hideLoading() {
@@ -59,69 +70,64 @@ function showToast(msg) {
 }
 
 // ─── REST Helpers ───
-function _headers(extra = {}) {
-  const h = {
-    'X-Appwrite-Project': PROJECT_ID,
+function _sbHeaders(extra = {}) {
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
     ...extra,
   };
-  if (API_KEY) h['X-Appwrite-Key'] = API_KEY;
-  return h;
 }
 
-async function awGet(path) {
-  // Appwrite accepts project ID via header OR query param. Use both.
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
+async function sbGet(path) {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
   console.log('GET', url);
-  const r = await fetch(url, { headers: _headers() });
+  const r = await fetch(url, { headers: _sbHeaders() });
   const text = await r.text();
   console.log('Response', r.status, text.substring(0, 200));
   if (!r.ok) throw new Error(`${r.status}: ${text}`);
-  try { return JSON.parse(text); } catch { return text; }
+  // Supabase returns array directly for SELECT
+  return JSON.parse(text);
 }
 
-async function awPost(path, body) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
+async function sbPost(path, body, prefer = 'return=representation') {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
   const r = await fetch(url, {
     method: 'POST',
-    headers: _headers({ 'Content-Type': 'application/json' }),
+    headers: _sbHeaders({
+      'Content-Type': 'application/json',
+      'Prefer': prefer,
+    }),
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-  return r.json();
+  // When return=representation, response is the inserted row(s)
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
 }
 
-async function awPatch(path, body) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
+async function sbPatch(path, body) {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
   const r = await fetch(url, {
     method: 'PATCH',
-    headers: _headers({ 'Content-Type': 'application/json' }),
+    headers: _sbHeaders({
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    }),
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-  return r.json();
-}
-
-async function awDelete(path) {
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${ENDPOINT}${path}${sep}project=${PROJECT_ID}`;
-  const r = await fetch(url, {
-    method: 'DELETE',
-    headers: _headers(),
-  });
-  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-  return r.ok;
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
 }
 
 // ─── Settings ───
 async function loadSettings() {
   try {
-    const res = await awGet(`/databases/${DB_ID}/collections/${SETTINGS_COLL}/documents`);
-    const doc = res.documents?.[0];
+    // Supabase returns an array; settings is a singleton (id=1)
+    const rows = await sbGet(`${TABLE_SETTINGS}?select=*&limit=1`);
+    const doc = rows?.[0];
     if (doc) {
-      deliveryFee = doc.deliveryFee ?? 399;
+      deliveryFee = doc.delivery_fee ?? 399;
       const el = document.getElementById('sum-delivery');
       if (el) el.textContent = fmtMoney(deliveryFee);
     }
@@ -140,13 +146,14 @@ async function loadMenu() {
   const grid = document.getElementById('menu-grid');
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Loading menu...</div>';
   try {
-    console.log('Fetching menu from Appwrite...');
-    const res = await awGet(`/databases/${DB_ID}/collections/${MENU_COLL}/documents?limit=500`);
-    console.log('Menu response:', res);
-    menuItems = (res.documents || []).map(d => MenuItem.fromDoc(d)).filter(i => i.available);
+    console.log('Fetching menu from Supabase...');
+    // Supabase supports order, limit, and eq filters via query string
+    const docs = await sbGet(`${TABLE_MENU}?select=*&order=name.asc&limit=1000`);
+    console.log(`Fetched ${docs.length} docs from Supabase`);
+    menuItems = docs.map(d => MenuItem.fromDoc(d)).filter(i => i.available);
     console.log(`Loaded ${menuItems.length} menu items`);
     if (menuItems.length === 0) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Menu is empty. Add items in the owner app.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Menu is empty. Add items via the Clover sync tool or the owner menu manager.</div>';
       return;
     }
     renderMenu('all');
@@ -167,21 +174,38 @@ async function loadMenu() {
   }
 }
 
+// Silent re-fetch for the 30s auto-refresh — doesn't show the loading grid.
+async function loadMenuSilent() {
+  try {
+    const docs = await sbGet(`${TABLE_MENU}?select=*&order=name.asc&limit=1000`);
+    const fresh = docs.map(d => MenuItem.fromDoc(d)).filter(i => i.available);
+    if (fresh.length !== menuItems.length) {
+      menuItems = fresh;
+      const activeChip = document.querySelector('.chip.chip-active');
+      const cat = activeChip ? activeChip.dataset.cat : 'all';
+      renderMenu(cat);
+    }
+  } catch (e) { /* ignore — try again in 30s */ }
+}
+
 class MenuItem {
   constructor(data) { Object.assign(this, data); }
   static fromDoc(d) {
+    // Supabase row is snake_case. The order/menu screen uses camelCase field names;
+    // normalize here so the rest of app.js doesn't need to change.
     return new MenuItem({
-      id: d.$id,
+      id: d.id,
       name: d.name || 'Item',
       description: d.description || '',
       price: d.price || 0,
       category: d.category || 'Other',
       available: d.available ?? true,
-      imageUrl: d.imageUrl || '',
+      imageUrl: d.image_url || '',
       emoji: d.emoji || '🍽️',
-      trending: d.trending ?? false,
-      sauces: parseJSON(d.sauces) || [],
-      addons: parseJSON(d.addons) || [],
+      trending: d.is_trending ?? false,
+      isNew: d.is_new ?? false,
+      sauces: Array.isArray(d.sauces) ? d.sauces : parseJSON(d.sauces) || [],
+      addons: Array.isArray(d.addons) ? d.addons : parseJSON(d.addons) || [],
     });
   }
 }
@@ -205,10 +229,14 @@ function setupCategories() {
 function renderMenu(category) {
   const grid = document.getElementById('menu-grid');
   const items = category === 'all' ? menuItems : menuItems.filter(i => i.category === category);
-  grid.innerHTML = items.map(item => `
+  const expanded = category !== 'all' && expandedCats.has(category);
+  const visible = expanded || category === 'all' ? items : items.slice(0, CATEGORY_LIMIT);
+  const overflow = items.length - visible.length;
+  const cards = visible.map(item => `
     <div class="menu-card" onclick="openCustomize('${item.id}')">
       <div class="menu-card-image">
-        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${esc(item.name)}" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;background:var(--surface-2);z-index:0;">${item.emoji || '🍽️'}</div>
+        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${esc(item.name)}" loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;" onerror="this.style.display='none'">` : ''}
         ${item.trending ? `<span class="menu-card-badge">Trending</span>` : ''}
       </div>
       <div class="menu-card-body">
@@ -221,6 +249,17 @@ function renderMenu(category) {
       </div>
     </div>
   `).join('');
+  const seeAll = (category !== 'all' && overflow > 0)
+    ? `<div class="see-all-row" onclick="toggleSeeAll('${category}')">${expanded ? 'Show less' : `See all (${items.length})`}</div>`
+    : '';
+  grid.innerHTML = cards + seeAll;
+}
+
+const expandedCats = new Set();
+function toggleSeeAll(category) {
+  if (expandedCats.has(category)) expandedCats.delete(category);
+  else expandedCats.add(category);
+  renderMenu(category);
 }
 
 function scrollToMenu() {
@@ -430,11 +469,12 @@ async function applyPromo() {
   const msg = document.getElementById('promo-message');
   if (!code) { msg.textContent = 'Enter a code'; msg.style.color = 'var(--text-muted)'; return; }
   try {
-    const res = await awGet(`/databases/${DB_ID}/collections/${PROMOS_COLL}/documents?limit=100`);
-    const doc = (res.documents || []).find(d => (d.code || '').toUpperCase() === code);
+    // Supabase: filter by code (case-insensitive via ilike) and active
+    const docs = await sbGet(`${TABLE_PROMOS}?select=*&code=ilike.${encodeURIComponent(code)}&limit=1`);
+    const doc = docs?.[0];
     if (!doc) { msg.textContent = 'Invalid code'; msg.style.color = 'var(--primary)'; return; }
     if (!doc.active) { msg.textContent = 'Code expired'; msg.style.color = 'var(--primary)'; return; }
-    currentPromo = { code: doc.code, discountPercent: doc.discountPercent || 10 };
+    currentPromo = { code: doc.code, discountPercent: doc.discount_percent || 10 };
     msg.textContent = `✓ ${currentPromo.discountPercent}% off applied`;
     msg.style.color = '#22c55e';
     renderCheckoutSummary();
@@ -478,34 +518,31 @@ async function placeOrder() {
   const oid = generateOrderId();
 
   const payload = {
-    documentId: oid,
-    data: {
-      orderId: oid,
-      customerName: name,
-      customerPhone: phone,
-      address: orderMode === 'delivery' ? address : 'Pickup',
-      mode: orderMode,
-      items: JSON.stringify(cart.map(c => ({
-        name: c.name,
-        qty: c.qty,
-        price: c.price,
-        sauce: c.sauce,
-        selectedAddons: c.selectedAddons,
-        specialInstructions: c.specialInstructions,
-      }))),
-      subtotal,
-      tax,
-      deliveryFee: delivery,
-      discount: disc,
-      promoCode: currentPromo?.code || '',
-      total,
-      status: 'placed',
-      createdAt: new Date().toISOString(),
-    },
+    order_id: oid,
+    customer_name: name,
+    customer_phone: phone,
+    address: orderMode === 'delivery' ? address : 'Pickup',
+    mode: orderMode,
+    items: cart.map(c => ({
+      name: c.name,
+      qty: c.qty,
+      price: c.price,
+      sauce: c.sauce,
+      selectedAddons: c.selectedAddons,
+      specialInstructions: c.specialInstructions,
+    })),
+    subtotal,
+    tax,
+    delivery_fee: delivery,
+    discount: disc,
+    promo_code: currentPromo?.code || '',
+    total,
+    status: 'placed',
   };
 
   try {
-    await awPost(`/databases/${DB_ID}/collections/${ORDERS_COLL}/documents`, payload);
+    // Supabase: POST to orders table. body is the row directly.
+    await sbPost(TABLE_ORDERS, payload, 'return=minimal');
     cart = [];
     currentPromo = null;
     currentOrderId = oid;
@@ -525,7 +562,7 @@ function generateOrderId() {
   const d = new Date();
   const date = d.toISOString().slice(0,10).replace(/-/g,'');
   const rand = Math.floor(Math.random()*900)+100;
-  return `GW-${date}-${rand}`;
+  return `DEMO-${date}-${rand}`;
 }
 
 function startTrackingFromConfirm() {
@@ -541,16 +578,19 @@ async function trackOrder() {
   if (!id) { showToast('Enter an order ID'); return; }
   result.classList.add('hidden');
   try {
-    const doc = await awGet(`/databases/${DB_ID}/collections/${ORDERS_COLL}/documents/${id}`);
+    // Supabase: filter by order_id, return single row
+    const rows = await sbGet(`${TABLE_ORDERS}?select=*&order_id=eq.${encodeURIComponent(id)}&limit=1`);
+    const doc = rows?.[0];
+    if (!doc) { showToast('Order not found'); return; }
     result.classList.remove('hidden');
     const st = doc.status || 'placed';
     document.getElementById('status-badge').textContent = st.toUpperCase();
-    document.getElementById('status-time').textContent = timeAgo(doc.$createdAt);
+    document.getElementById('status-time').textContent = timeAgo(doc.created_at);
     renderTimeline(st);
 
     const driverEl = document.getElementById('driver-info');
     const distEl = document.getElementById('driver-dist');
-    if (st === 'out_for_delivery' && doc.driverLat && doc.driverLng) {
+    if (st === 'out_for_delivery' && doc.driver_lat && doc.driver_lng) {
       driverEl.classList.remove('hidden');
       distEl.textContent = 'Driver location updated';
     } else {
@@ -570,7 +610,9 @@ async function trackOrder() {
 
 async function pollOrder(id) {
   try {
-    const doc = await awGet(`/databases/${DB_ID}/collections/${ORDERS_COLL}/documents/${id}`);
+    const rows = await sbGet(`${TABLE_ORDERS}?select=*&order_id=eq.${encodeURIComponent(id)}&limit=1`);
+    const doc = rows?.[0];
+    if (!doc) return;
     const st = doc.status || 'placed';
     document.getElementById('status-badge').textContent = st.toUpperCase();
     renderTimeline(st);
@@ -601,13 +643,12 @@ function renderTimeline(status) {
 // ─── Promos ───
 async function loadPromos() {
   try {
-    const res = await awGet(`/databases/${DB_ID}/collections/${PROMOS_COLL}/documents?limit=100`);
-    const docs = (res.documents || []).filter(d => d.active);
+    const docs = await sbGet(`${TABLE_PROMOS}?select=*&active=eq.true&limit=100`);
     const banner = document.getElementById('promo-banner');
     const text = document.getElementById('promo-text');
     if (docs.length) {
       banner.classList.remove('hidden');
-      text.textContent = `Use code ${docs[0].code} for ${docs[0].discountPercent || 10}% off!`;
+      text.textContent = `Use code ${docs[0].code} for ${docs[0].discount_percent || 10}% off!`;
     }
   } catch (e) { console.warn('Promo load failed', e); }
 }
@@ -622,6 +663,313 @@ function navigateTo(screen) {
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
   const link = document.querySelector(`.nav-link[data-screen="${screen}"]`);
   if (link) link.classList.add('active');
+}
+
+// ─── Owner Auth ───
+let ownerToken = null;
+let ownerUser = null;
+let ownerPollInterval = null;
+let ownerSettingsCache = null;
+
+function showOwnerLogin() {
+  document.getElementById('owner-login-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeOwnerLogin() {
+  document.getElementById('owner-login-modal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+async function ownerLogin() {
+  const email = document.getElementById('owner-email').value.trim();
+  const password = document.getElementById('owner-password').value;
+  const err = document.getElementById('owner-login-error');
+  err.textContent = '';
+  if (!email || !password) { err.textContent = 'Enter email and password'; return; }
+  try {
+    const r = await fetch(`${ENV.supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': ENV.supabaseKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || data.error_description || `Auth error ${r.status}`);
+    ownerToken = data.access_token;
+    ownerUser = data.user;
+    closeOwnerLogin();
+    openOwnerShell();
+  } catch (e) {
+    err.textContent = 'Sign in failed: ' + e.message;
+  }
+}
+function ownerLogout() {
+  ownerToken = null;
+  ownerUser = null;
+  if (ownerPollInterval) { clearInterval(ownerPollInterval); ownerPollInterval = null; }
+  document.getElementById('owner-shell').classList.add('hidden');
+}
+function openOwnerShell() {
+  document.getElementById('owner-shell').classList.remove('hidden');
+  document.getElementById('owner-build-tag').textContent = window.LC_BUILD || 'dev';
+  switchOwnerView('orders');
+}
+function switchOwnerView(view) {
+  document.querySelectorAll('.owner-view').forEach(v => v.classList.remove('active'));
+  document.querySelector(`.owner-view#owner-view-${view}`)?.classList.add('active');
+  document.querySelectorAll('.owner-nav button[data-owner]').forEach(b => b.classList.toggle('active', b.dataset.owner === view));
+  if (view === 'orders') { loadOwnerOrders(); startOwnerPolling(); }
+  else if (view === 'menu') { loadOwnerMenu(); stopOwnerPolling(); }
+  else if (view === 'combos') { loadOwnerCombos(); stopOwnerPolling(); }
+  else if (view === 'promos') { loadOwnerPromos(); stopOwnerPolling(); }
+  else if (view === 'settings') { loadOwnerSettings(); stopOwnerPolling(); }
+}
+function startOwnerPolling() {
+  if (ownerPollInterval) clearInterval(ownerPollInterval);
+  ownerPollInterval = setInterval(loadOwnerOrders, 5000);
+}
+function stopOwnerPolling() {
+  if (ownerPollInterval) { clearInterval(ownerPollInterval); ownerPollInterval = null; }
+}
+
+function _ownerHeaders(extra = {}) {
+  return {
+    'apikey': ENV.supabaseKey,
+    'Authorization': `Bearer ${ownerToken || ENV.supabaseKey}`,
+    ...extra,
+  };
+}
+async function ownerGet(path) {
+  const r = await fetch(`${ENV.supabaseUrl}/rest/v1/${path}`, { headers: _ownerHeaders() });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`${r.status}: ${text}`);
+  return JSON.parse(text);
+}
+async function ownerPost(path, body, prefer = 'return=representation') {
+  const r = await fetch(`${ENV.supabaseUrl}/rest/v1/${path}`, {
+    method: 'POST',
+    headers: _ownerHeaders({ 'Content-Type': 'application/json', 'Prefer': prefer }),
+    body: JSON.stringify(body),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`${r.status}: ${text}`);
+  return text ? JSON.parse(text) : null;
+}
+async function ownerPatch(path, body) {
+  const r = await fetch(`${ENV.supabaseUrl}/rest/v1/${path}`, {
+    method: 'PATCH',
+    headers: _ownerHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+    body: JSON.stringify(body),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`${r.status}: ${text}`);
+  return text ? JSON.parse(text) : null;
+}
+async function ownerDelete(path) {
+  const r = await fetch(`${ENV.supabaseUrl}/rest/v1/${path}`, {
+    method: 'DELETE',
+    headers: _ownerHeaders(),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`${r.status}: ${text}`);
+  return true;
+}
+
+// ─── Owner Orders ───
+const STATUS_FLOW = ['placed','preparing','ready','out_for_delivery','delivered'];
+const STATUS_LABELS = { placed:'Placed', preparing:'Preparing', ready:'Ready', out_for_delivery:'Out', delivered:'Delivered', cancelled:'Cancelled' };
+async function loadOwnerOrders() {
+  try {
+    const rows = await ownerGet(`${ENV.tableOrders}?select=*&status=in.(${['placed','preparing','ready','out_for_delivery'].join(',')})&order=created_at.desc&limit=200`);
+    document.getElementById('owner-orders-count').textContent = rows.length ? `(${rows.length})` : '';
+    const board = document.getElementById('owner-board');
+    if (!rows.length) { board.innerHTML = '<div class="owner-board-empty">No active orders. Finished orders appear in Settings → History.</div>'; return; }
+    board.innerHTML = rows.map(o => renderBoardOrder(o)).join('');
+  } catch (e) { showToast('Orders load failed: ' + e.message); }
+}
+function renderBoardOrder(o) {
+  const items = (o.items || []).map(i => `${i.qty}× ${esc(i.name)}`).join(', ');
+  const idx = STATUS_FLOW.indexOf(o.status);
+  const next = STATUS_FLOW[idx + 1];
+  const prev = STATUS_FLOW[idx - 1];
+  return `
+    <div class="board-order" data-id="${esc(o.id)}">
+      <div class="board-order-header">
+        <span class="board-order-id">${esc(o.order_id)}</span>
+        <span class="board-order-time">${timeAgo(o.created_at)}</span>
+      </div>
+      <div class="board-order-name">${esc(o.customer_name)} • ${esc(o.customer_phone)}</div>
+      <div class="board-order-address">${esc(o.address)}</div>
+      <div class="board-order-items">${esc(items)}</div>
+      <div class="board-order-actions">
+        ${prev ? `<button class="btn btn-secondary btn-sm" onclick="moveOrder('${esc(o.id)}','${prev}')">← ${STATUS_LABELS[prev]}</button>` : ''}
+        ${next ? `<button class="btn btn-primary btn-sm" onclick="moveOrder('${esc(o.id)}','${next}')">${STATUS_LABELS[next]} →</button>` : ''}
+        ${o.status !== 'cancelled' ? `<button class="btn btn-secondary btn-sm" style="color:#991b1b" onclick="moveOrder('${esc(o.id)}','cancelled')">Cancel</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+async function moveOrder(id, status) {
+  try {
+    await ownerPatch(`${ENV.tableOrders}?id=eq.${encodeURIComponent(id)}`, { status, updated_at: new Date().toISOString() });
+    showToast(`Order moved to ${STATUS_LABELS[status]}`);
+    loadOwnerOrders();
+  } catch (e) { showToast('Update failed: ' + e.message); }
+}
+
+// ─── Owner Menu (read-only stub) ───
+function loadOwnerMenu() {
+  const table = document.getElementById('owner-menu-table');
+  if (!menuItems.length) {
+    table.innerHTML = '<div class="owner-menu-row" style="padding:40px;text-align:center;color:var(--text-muted)">Menu is empty. Use the Clover sync tool to populate menu items.</div>';
+    return;
+  }
+  table.innerHTML = `
+    <div class="owner-menu-row header"><div></div><div>Item</div><div>Price</div><div>Cat</div><div></div></div>
+    ${menuItems.map(i => `
+      <div class="owner-menu-row">
+        <div class="emoji-cell">${i.emoji || '🍽️'}</div>
+        <div class="name-cell">${esc(i.name)}<div class="muted">${esc(i.description || '')}</div></div>
+        <div>${fmtMoney(i.price)}</div>
+        <div>${esc(i.category || 'Other')}</div>
+        <div class="actions"><button class="edit-btn" onclick="openMenuEditor('${esc(i.id)}')">Edit</button></div>
+      </div>
+    `).join('')}
+  `;
+}
+function openMenuEditor(id) {
+  const item = menuItems.find(i => i.id === id);
+  showToast(item ? 'Menu editing is disabled while Clover sync is active.' : 'Menu editing is disabled while Clover sync is active.');
+}
+
+// ─── Owner Combos ───
+let ownerCombos = [];
+async function loadOwnerCombos() {
+  try {
+    ownerCombos = await ownerGet(`${ENV.tableCombos || 'combos'}?select=*&order=display_order.asc`);
+  } catch (e) { ownerCombos = []; }
+  const table = document.getElementById('owner-combos-table');
+  table.innerHTML = `
+    <div class="owner-menu-row header"><div></div><div>Combo</div><div>Price</div><div>Items</div><div></div></div>
+    ${ownerCombos.map(c => `
+      <div class="owner-menu-row">
+        <div class="emoji-cell">${c.emoji || '🎁'}</div>
+        <div class="name-cell">${esc(c.name || '')}<div class="muted">${esc(c.description || '')}</div></div>
+        <div>${fmtMoney(c.combo_price || 0)}</div>
+        <div>${(c.item_ids || []).length} items</div>
+        <div class="actions"><button class="edit-btn" onclick="openComboEditor('${esc(c.id)}')">Edit</button><button class="delete-btn" onclick="deleteCombo('${esc(c.id)}')">Del</button></div>
+      </div>
+    `).join('') || '<div class="owner-menu-row" style="padding:40px;text-align:center;color:var(--text-muted)">No combos yet.</div>'}
+  `;
+}
+function openComboEditor(id) { showToast('Combo editor coming in next pass.'); }
+function deleteCombo(id) { showToast('Combo delete coming in next pass.'); }
+
+// ─── Owner Promos ───
+let ownerPromos = [];
+async function loadOwnerPromos() {
+  try { ownerPromos = await ownerGet(`${ENV.tablePromos}?select=*&order=created_at.desc`); }
+  catch (e) { ownerPromos = currentPromo ? [] : []; }
+  const table = document.getElementById('owner-promos-table');
+  table.innerHTML = `
+    <div class="owner-menu-row header"><div>Code</div><div>Description</div><div>% Off</div><div>Active</div><div></div></div>
+    ${ownerPromos.map(p => `
+      <div class="owner-menu-row" style="grid-template-columns: 1fr 2fr 80px 80px 100px;">
+        <div class="name-cell">${esc(p.code)}</div>
+        <div class="muted">${esc(p.description || '')}</div>
+        <div>${p.discount_percent}%</div>
+        <div><input type="checkbox" ${p.active ? 'checked' : ''} onchange="togglePromo('${esc(p.id)}', this.checked)"></div>
+        <div class="actions"><button class="delete-btn" onclick="deletePromo('${esc(p.id)}')">Del</button></div>
+      </div>
+    `).join('') || '<div class="owner-menu-row" style="padding:40px;text-align:center;color:var(--text-muted)">No promos yet.</div>'}
+  `;
+}
+async function togglePromo(id, active) {
+  try { await ownerPatch(`${ENV.tablePromos}?id=eq.${encodeURIComponent(id)}`, { active }); showToast('Promo updated'); loadOwnerPromos(); }
+  catch (e) { showToast('Promo update failed: ' + e.message); }
+}
+async function deletePromo(id) {
+  if (!confirm('Delete this promo?')) return;
+  try { await ownerDelete(`${ENV.tablePromos}?id=eq.${encodeURIComponent(id)}`); showToast('Promo deleted'); loadOwnerPromos(); }
+  catch (e) { showToast('Promo delete failed: ' + e.message); }
+}
+function openPromoEditor() {
+  const code = prompt('Promo code (e.g. SUMMER20):'); if (!code) return;
+  const pct = parseInt(prompt('Discount percent (e.g. 20):'), 10);
+  if (!pct || pct < 1) return;
+  const desc = prompt('Description (optional):') || '';
+  ownerPost(ENV.tablePromos, { code: code.toUpperCase(), description: desc, discount_percent: pct, active: true })
+    .then(() => { showToast('Promo added'); loadOwnerPromos(); })
+    .catch(e => showToast('Promo add failed: ' + e.message));
+}
+
+// ─── Owner Settings ───
+async function loadOwnerSettings() {
+  try {
+    const rows = await ownerGet(`${ENV.tableSettings}?select=*&limit=1`);
+    ownerSettingsCache = rows?.[0] || {};
+  } catch (e) { ownerSettingsCache = {}; }
+  const grid = document.getElementById('owner-settings-grid');
+  const s = ownerSettingsCache;
+  grid.innerHTML = `
+    <div class="owner-setting-card">
+      <h3>Business Info</h3>
+      <div class="form-group"><label>Business Name</label><input class="input" id="s-name" value="${esc(s.business_name || ENV.businessName)}" /></div>
+      <div class="form-group"><label>Address</label><input class="input" id="s-address" value="${esc(s.business_address || '')}" /></div>
+      <div class="form-group"><label>Phone</label><input class="input" id="s-phone" value="${esc(s.business_phone || '')}" /></div>
+    </div>
+    <div class="owner-setting-card">
+      <h3>Delivery & Tax</h3>
+      <div class="form-group"><label>Delivery Fee (cents)</label><input class="input" id="s-delivery" type="number" value="${s.delivery_fee ?? ENV.defaultDeliveryFee}" /></div>
+      <div class="form-group"><label>Tax Rate</label><input class="input" id="s-tax" value="${s.tax_rate ?? ENV.taxRate}" /></div>
+    </div>
+    <div class="owner-setting-card" style="grid-column:1/-1;">
+      <h3>Business Hours</h3>
+      <div id="owner-hours-rows"></div>
+    </div>
+    <div class="owner-setting-card" style="grid-column:1/-1;">
+      <div class="owner-save-bar"><button class="btn btn-primary" onclick="saveOwnerSettings()">Save Settings</button></div>
+    </div>
+  `;
+  renderOwnerHours(s.business_hours || {});
+}
+function renderOwnerHours(hours) {
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const container = document.getElementById('owner-hours-rows');
+  container.innerHTML = days.map(d => {
+    const h = hours[d] || { open: true, start: '10:30', end: '21:00' };
+    return `
+      <div class="hours-row">
+        <label>${d.slice(0,3)}</label>
+        <input type="time" id="h-start-${d}" value="${h.start || '10:30'}" />
+        <input type="time" id="h-end-${d}" value="${h.end || '21:00'}" />
+        <label><input type="checkbox" id="h-open-${d}" ${h.open !== false ? 'checked' : ''}> Open</label>
+      </div>
+    `;
+  }).join('');
+}
+async function saveOwnerSettings() {
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const business_hours = {};
+  days.forEach(d => {
+    business_hours[d] = {
+      open: document.getElementById(`h-open-${d}`).checked,
+      start: document.getElementById(`h-start-${d}`).value,
+      end: document.getElementById(`h-end-${d}`).value,
+    };
+  });
+  const payload = {
+    business_name: document.getElementById('s-name').value,
+    business_address: document.getElementById('s-address').value,
+    business_phone: document.getElementById('s-phone').value,
+    delivery_fee: parseInt(document.getElementById('s-delivery').value, 10) || 0,
+    tax_rate: parseFloat(document.getElementById('s-tax').value) || 0,
+    business_hours,
+  };
+  try {
+    await ownerPatch(`${ENV.tableSettings}?id=eq.1`, payload);
+    showToast('Settings saved');
+    await loadSettings();
+    updateHoursDisplay();
+  } catch (e) { showToast('Settings save failed: ' + e.message); }
 }
 
 // ─── Utils ───

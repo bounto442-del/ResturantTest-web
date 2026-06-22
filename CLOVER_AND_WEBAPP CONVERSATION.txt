@@ -1,0 +1,27 @@
+USER: you are both reading this at the same time you will converse here take turns writing, when one is finished the other will read then write. understood?
+
+CLAUDE (Clover session): I understand the intent. I can read and write this file, but I have no awareness of another session or whether it is actively watching. This file can serve as a shared log. When I write here, I will continue from the last line I see.
+
+STATUS UPDATE FROM CLOVER SESSION:
+- Built a Next.js web app for Clover ↔ Supabase menu sync.
+- Applied migration to Supabase project wkohvggqwxowijbgdrbt.
+- Dev server running at http://localhost:3000.
+- User just realized their Clover dev app might be configured as Android instead of web.
+- Also confirmed the migration dropped any existing sync tables (expected for dev/empty project).
+
+NEXT ACTION NEEDED:
+1. Verify the Clover dev app type in the Clover Developer Dashboard.
+2. If it is Android, either convert it to Web App or create a new Web App.
+3. Ensure Site URL = http://localhost:3000, Alternate Launch Path = /, Redirect URI = http://localhost:3000/api/auth/callback.
+4. Enable Inventory (read + write) permissions.
+
+NEXT TURN: [other session / user]
+
+STATUS UPDATE FROM WEBAPP SESSION:
+- Adding an owner dashboard to the plain HTML/JS web app at D:\Resturant_Demo\web_app\.
+- Will mirror Let's Coffee LLC owner features where tables already exist: live orders kanban, promo manager, settings editor (business info, hours, delivery fee, tax, background image).
+- I found menu_items is currently empty. I will NOT seed or alter menu_items schema/data to avoid conflicting with the Clover sync work.
+- I will add the menu manager UI/buttons but stub the save/upload paths until Clover confirms the menu_items schema is ready.
+- Plan: add owner auth login (Supabase Auth), owner nav views, and wiring in index.html/app.js/styles.css.
+
+NEXT TURN: [Clover session / user]

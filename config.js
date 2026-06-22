@@ -1,36 +1,36 @@
 /**
- * Gigi's WingShack — Web App Config
- * Environment variables for Appwrite and business settings.
+ * Demo Restaurant — Web App Config
+ * Supabase REST backend (migrated from Appwrite).
  */
 
 const ENV = {
-  // Appwrite
-  appwriteEndpoint: 'https://nyc.cloud.appwrite.io/v1',
-  appwriteProjectId: '6a279558003800b0b4d6',
-  appwriteApiKey: '', // leave empty for public-permission collections
-  appwriteProjectName: 'Wing_Shack_Test',
-  appwriteDatabaseId: 'gigis-wingshack',
+  // Supabase (migrated from Appwrite on 2026-06-11)
+  supabaseUrl: 'https://wkohvggqwxowijbgdrbt.supabase.co',
+  supabaseKey: 'sb_publishable_Y4faC-tH-48XvzwPJ6ZWNQ_QZMMg6QS', // publishable/browser-safe
 
-  // Collections
-  collectionOrders: 'orders',
-  collectionMenuItems: 'menuItems',
-  collectionPromos: 'promos',
-  collectionSeasonMenus: 'seasonMenus',
-  collectionSettings: 'settings',
+  // Tables (snake_case to match Postgres columns)
+  tableMenuItems: 'menu_items',
+  tableOrders: 'orders',
+  tablePromos: 'promos',
+  tableSettings: 'settings',
+  tableCombos: 'combos',
+  tableCustomerRewards: 'customer_rewards',
 
-  // Storage
-  bucketMenuImages: 'menuImages',
+  // Storage bucket (create in Supabase: public, name = "menu-images")
+  bucketMenuImages: 'menu-images',
 
-  // Business
-  businessName: "Gigi's WingShack",
-  businessAddress: '587 S Sam Houston Blvd, San Benito, TX 78586',
-  businessPhone: '(956) 399-1399',
+  // Business (demo values — swap for real client info)
+  businessName: "Demo Restaurant",
+  businessAddress: '123 Main Street, City, ST 00000',
+  businessPhone: '(555) 123-4567',
 
   // Payments
-  cashAppCashtag: '$GigisWingShack',
-  cashAppLink: 'https://cash.app/$GigisWingShack',
+  cashAppCashtag: '$DemoRestaurant',
+  cashAppLink: 'https://cash.app/$DemoRestaurant',
 
   // Delivery
   taxRate: 0.0825,
   defaultDeliveryFee: 399, // cents
 };
+
+window.LC_BUILD = 'v7-2026-06-22';
