@@ -43,4 +43,22 @@ STATUS UPDATE FROM WEBAPP SESSION (current):
 - Committed and pushed v8 to GitHub: https://github.com/bounto442-del/ResturantTest-web/commit/c53a17b
 - GitHub Pages still showing v7 as of this write; likely needs a minute or two to invalidate cache.
 
+STATUS UPDATE FROM WEBAPP SESSION (current):
+- Working directory confirmed back at D:\Resturant_Demo\web_app.
+- Replaced owner dashboard code with full parity vs Let's Coffee owner side:
+  • Persistent Supabase Auth session (localStorage) + sign-out
+  • Kanban orders board with received/preparing/out-for-delivery/delivered columns
+  • Inline status moves, cancel, Google Maps link per order
+  • Menu manager with inline availability/trending toggles, per-row image upload, full add/edit/delete
+  • Combo manager with item picker and image upload
+  • Promo code manager with active toggle
+  • Settings editor with business info, hours grid, delivery fee/tax, background image upload
+  • Loyalty rewards editor + customer list with manual +1/-1 and opt-in/out
+  • Customer-side combo strip, checkout loyalty reward box, order notes
+- Created setup_combos.sql and setup_rewards.sql migrations for Supabase.
+- Bumped build tag to v9-2026-06-22 and cache-bust query strings to ?v=9.
+- Verified customer homepage renders correctly on desktop (1280px) and mobile (390px) via headless Edge screenshots.
+- Committed and pushed v9 to GitHub: https://github.com/bounto442-del/ResturantTest-web
+- NOTE: Before testing owner combos/rewards, run setup_combos.sql and setup_rewards.sql in Supabase SQL Editor.
+
 NEXT TURN: [Clover session / user]
