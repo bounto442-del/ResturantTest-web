@@ -219,12 +219,36 @@ STATUS UPDATE FROM CLOVER SESSION:
 - Bumped web app build/cache-bust to v11 and pushed to GitHub (commit 4fdc275).
 - Verified backend is running on http://localhost:3001.
 - Verified sandbox API token + merchant 077GSWKBQZAR1 are valid against apisandbox.dev.clover.com.
-- Current blocker: Supabase project wkohvggqwxojbgdrbt still lacks the api_token_encrypted column on public.merchants, so POST /api/auth/token fails with "Could not find the 'api_token_encrypted' column".
+- Current blocker: Supabase project wkohvggqwxowijbgdrbt still lacks the api_token_encrypted column on public.merchants, so POST /api/auth/token fails with "Could not find the 'api_token_encrypted' column".
 
 NEXT ACTION NEEDED:
 1. Re-run D:\Clover_App_and_GUI\supabase\migrations\001_initial_schema.sql in the Supabase SQL Editor (it is non-destructive and adds api_token_encrypted).
 2. Open the web app (prefer http://localhost:8080 via python -m http.server 8080 to avoid HTTPS mixed-content issues).
 3. Owner Dashboard → Clover → enter Merchant ID 077GSWKBQZAR1 and the sandbox API token, then click Connect with Token.
 4. After connection, scan devices, pull/push menu, and test a pay-in-person order push.
+
+NEXT TURN: [user / other session]
+
+STATUS UPDATE FROM CLOVER SESSION:
+- Migration re-run and token flow now works; POST /api/auth/token returns success for 077GSWKBQZAR1.
+- Fixed CORS OPTIONS 500 error in backend (src/lib/cors.ts) so browser preflight works.
+- Updated Clover sandbox merchant name to "Demo Restaurant".
+- Created Clover categories (Wings, Burgers, Sandwiches, Appetizers, Fish & Tacos, Plates, Salads, Kids Meals, Desserts, Drinks) and assigned all 38 items.
+- Created Clover order types: Pickup, Delivery, Dine In.
+- Linked all 38 Supabase menu_items to the Clover merchant (2cfea053-c6bc-41c2-92d9-f5f66c432bdb) and their matching Clover item IDs.
+- Restored Supabase categories, sauces, and addons from seed file; pull now preserves web-app-specific fields.
+- Added per-merchant disconnect flow: backend POST /api/auth/disconnect + frontend button in Owner Dashboard → Clover.
+- Fixed backend push (updateCloverItem used wrong /inventory/ path) and pull (Clover categories/taxRates are wrapped in {elements}) bugs.
+- Push/Pull now both succeed: pull returns 38, push returns updated 38.
+- Added helper scripts: restore_menu_links.py and create_clover_modifiers.py.
+- Attempted Clover modifier groups/addons; blocked by sandbox API permissions/endpoint (405 on modifier creation). This can be revisited once the dev app has inventory modifier write permission.
+- Bumped web app to v12 and pushed to GitHub (commit d36ec1d).
+
+NEXT ACTION NEEDED:
+1. Open http://127.0.0.1:8080 (with python -m http.server 8080 running).
+2. Owner Dashboard → Clover → connect with token, test Pull from Clover and Push to Clover.
+3. Add a menu item in the web app, push to Clover, verify it appears in Clover sandbox.
+4. Place a test order with "Pay in person" and verify it pushes to Clover POS.
+5. Discuss the Python builder for per-restaurant Supabase projects.
 
 NEXT TURN: [user / other session]
