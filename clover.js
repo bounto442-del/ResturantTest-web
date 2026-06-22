@@ -120,7 +120,7 @@ async function pushOrderToClover(order) {
   }).then(async res => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Order push failed: ${res.status}`);
-    return data;
+    return data.order || data;
   });
 }
 

@@ -770,9 +770,11 @@ async function placeOrder() {
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
       try { await ensureCustomerReward(phoneDigits, true); } catch (loyErr) { console.error('rewards opt-in failed', loyErr); }
     }
+    let cloverOrderId = null;
     if (paymentMethod === 'in_person' && window.Clover && Clover.isConnected()) {
       try {
-        await Clover.pushOrder(payload);
+        const cloverOrder = await Clover.pushOrder(payload);
+        cloverOrderId = cloverOrder?.id || null;
         showToast('Order sent to Clover POS');
       } catch (cloverErr) {
         console.error('Clover order push failed', cloverErr);
@@ -788,6 +790,18 @@ async function placeOrder() {
     pendingRewardInfo = null;
     currentOrderId = oid;
     document.getElementById('confirm-id').textContent = oid;
+
+    const cloverWrap = document.getElementById('confirm-clover-wrap');
+    const cloverIdEl = document.getElementById('confirm-clover-id');
+    if (cloverWrap && cloverIdEl) {
+      if (cloverOrderId) {
+        cloverIdEl.textContent = cloverOrderId;
+        cloverWrap.classList.remove('hidden');
+      } else {
+        cloverWrap.classList.add('hidden');
+      }
+    }
+
     navigateTo('confirmation');
     showToast('Order placed successfully!');
   } catch (e) {
