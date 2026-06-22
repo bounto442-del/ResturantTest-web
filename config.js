@@ -25,7 +25,7 @@ const ENV = {
   businessPhone: '(555) 123-4567',
 
   // Clover integration backend (Next.js app)
-  cloverBackendUrl: 'http://localhost:3001',
+  cloverBackendUrl: 'https://clover-restaurant-backend.vercel.app',
 
   // Payments
   cashAppCashtag: '$DemoRestaurant',
