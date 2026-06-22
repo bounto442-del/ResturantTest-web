@@ -1897,17 +1897,101 @@ async function onPullCloverMenu() {
   }
 }
 
+
 async function onPushCloverMenu() {
   const status = document.getElementById('clover-sync-status');
-  status.textContent = 'Pushing menu…';
+  status.textContent = 'Checking Clover menu…';
+  status.style.color = 'var(--text-muted)';
   try {
-    const result = await Clover.pushMenu();
-    status.textContent = `Created ${result.created || 0}, updated ${result.updated || 0}, skipped ${result.skippedPush || 0}.`;
-    status.style.color = '#22c55e';
+    const report = await Clover.checkPushMenu();
+    if (report.safeToPush) {
+      status.textContent = 'Pushing menu…';
+      const result = await Clover.pushMenu(false);
+      status.textContent = `Created ${result.created || 0}, updated ${result.updated || 0}, skipped ${result.skipped || 0}.`;
+      status.style.color = '#22c55e';
+    } else {
+      status.textContent = 'Clover menu check found issues. Review below.';
+      status.style.color = 'var(--primary)';
+      showCloverPushReport(report);
+    }
   } catch (e) {
-    status.textContent = 'Push failed: ' + e.message;
+    status.textContent = 'Push check failed: ' + e.message;
     status.style.color = 'var(--primary)';
   }
+}
+
+async function doForcePushCloverMenu() {
+  const status = document.getElementById('clover-sync-status');
+  closeCloverPushReport();
+  status.textContent = 'Pushing menu (force)…';
+  try {
+    const result = await Clover.pushMenu(true);
+    status.textContent = `Force pushed: created ${result.created || 0}, updated ${result.updated || 0}, skipped ${result.skipped || 0}.`;
+    status.style.color = '#22c55e';
+  } catch (e) {
+    status.textContent = 'Force push failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
+async function doPullThenPushCloverMenu() {
+  const status = document.getElementById('clover-sync-status');
+  closeCloverPushReport();
+  status.textContent = 'Pulling from Clover to match…';
+  try {
+    const pullResult = await Clover.pullMenu();
+    status.textContent = `Pulled ${pullResult.pulled || 0} items. Now pushing…`;
+    await loadMenu();
+    const pushResult = await Clover.pushMenu(false);
+    status.textContent = `Synced: pulled ${pullResult.pulled || 0}, pushed created ${pushResult.created || 0}, updated ${pushResult.updated || 0}.`;
+    status.style.color = '#22c55e';
+  } catch (e) {
+    status.textContent = 'Pull-then-push failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
+function showCloverPushReport(report) {
+  const modal = document.getElementById('clover-push-report-modal');
+  const body = document.getElementById('clover-push-report-body');
+  if (!modal || !body) return;
+
+  const warnings = (report.warnings || [])
+    .map(w => `<div class="clover-report-warning">⚠️ ${esc(w)}</div>`)
+    .join('');
+
+  const onlyClover = (report.onlyInClover || [])
+    .map(i => `<div class="clover-report-row"><span>${esc(i.name)}</span><span class="muted">only in Clover</span></div>`)
+    .join('') || '<div class="muted">None</div>';
+
+  const mismatches = (report.nameMismatches || [])
+    .map(m => `<div class="clover-report-row"><span>${esc(m.supabaseName)}</span><span class="muted">linked to “${esc(m.cloverName)}”</span></div>`)
+    .join('') || '<div class="muted">None</div>';
+
+  body.innerHTML = `
+    ${warnings}
+    <div class="clover-report-section">
+      <h4>Items only in Clover (${report.onlyInClover?.length || 0})</h4>
+      ${onlyClover}
+    </div>
+    <div class="clover-report-section">
+      <h4>Name mismatches (${report.nameMismatches?.length || 0})</h4>
+      ${mismatches}
+    </div>
+    <p class="muted">Matched: ${report.matched?.length || 0} · Only in Supabase: ${report.onlyInSupabase?.length || 0}</p>
+  `;
+  modal.classList.add('active');
+}
+
+function closeCloverPushReport() {
+  const modal = document.getElementById('clover-push-report-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function openMenuManagerForClover() {
+  closeCloverPushReport();
+  switchOwnerView('menu');
+  showToast('Review and organize your menu, then push again.');
 }
 
 async function onScanCloverDevices() {

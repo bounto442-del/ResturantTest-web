@@ -503,62 +503,78 @@
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
-  </div>
 
-  <!-- Diagnostic fetch test — runs before app.js -->
-  <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
-    <span id="diag-text">Testing connection...</span>
-  </div>
-  <script src="config.js?v=12"></script>
-  <script src="app.js?v=12"></script>
-  <script src="clover.js?v=4"></script>
-  <script>
-    // Diagnostic fetch test — runs after config.js so ENV is available.
-    (async function diag() {
-      const banner = document.getElementById('diag-banner');
-      const text = document.getElementById('diag-text');
-      if (!banner) return;
-      banner.style.display = 'block';
+    <!-- Clover Push Safety Report Modal -->
+    <div id="clover-push-report-modal" class="modal">
+      <div class="modal-overlay" onclick="closeCloverPushReport()"></div>
+      <div class="modal-panel modal-md">
+        <button class="modal-close" onclick="closeCloverPushReport()">✕</button>
+        <h2 class="customize-title">⚠️ Clover Menu Mismatch</h2>
+        <p class="customize-desc">Your Clover POS already has items that don't match your web app menu. Push now may overwrite or duplicate data. Choose an action below.</p>
+        <div id="clover-push-report-body" style="max-height:50vh;overflow-y:auto;margin:12px 0;"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:12px;">
+          <button class="btn" onclick="openMenuManagerForClover()">Review Menu</button>
+          <button class="btn btn-secondary" onclick="doPullThenPushCloverMenu()">Pull from Clover, then Push</button>
+          <button class="btn btn-primary" onclick="doForcePushCloverMenu()">Push Anyway</button>
+        </div>
+      </div>
+    </div>
 
-      if (window.location.protocol === 'file:') {
-        text.innerHTML = 'Open via server: <code>python -m http.server 8080</code> then <a href="http://localhost:8080" style="color:#fbbf24">http://localhost:8080</a>';
-        banner.style.background = '#7f1d1d';
-        setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 8000);
-        return;
-      }
+    <!-- Diagnostic fetch test — runs before app.js -->
+    <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
+      <span id="diag-text">Testing connection...</span>
+    </div>
+    <script src="config.js?v=13"></script>
+    <script src="app.js?v=13"></script>
+    <script src="clover.js?v=5"></script>
+    <script>
+      // Diagnostic fetch test — runs after config.js so ENV is available.
+      (async function diag() {
+        const banner = document.getElementById('diag-banner');
+        const text = document.getElementById('diag-text');
+        if (!banner) return;
+        banner.style.display = 'block';
 
-      const SUPABASE_URL = (typeof ENV !== 'undefined' && ENV.supabaseUrl) || 'https://wkohvggqwxowijbgdrbt.supabase.co';
-      const SUPABASE_KEY = (typeof ENV !== 'undefined' && ENV.supabaseKey) || '';
-      if (!SUPABASE_KEY) {
-        text.textContent = 'Supabase key missing in config.js';
-        banner.style.background = '#7f1d1d';
-        return;
-      }
-      const url = `${SUPABASE_URL}/rest/v1/menu_items?select=id&limit=1`;
+        if (window.location.protocol === 'file:') {
+          text.innerHTML = 'Open via server: <code>python -m http.server 8080</code> then <a href="http://localhost:8080" style="color:#fbbf24">http://localhost:8080</a>';
+          banner.style.background = '#7f1d1d';
+          setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 8000);
+          return;
+        }
 
-      text.textContent = 'GET ' + url;
-      try {
-        const r = await fetch(url, {
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
-          },
-        });
-        const body = await r.text();
-        if (r.ok) {
-          const j = JSON.parse(body);
-          text.textContent = 'Supabase OK — ' + (Array.isArray(j) ? j.length + ' row(s)' : 'connected');
-          banner.style.background = '#064e3b';
-        } else {
-          text.textContent = 'HTTP ' + r.status + ': ' + body.substring(0, 120);
+        const SUPABASE_URL = (typeof ENV !== 'undefined' && ENV.supabaseUrl) || 'https://wkohvggqwxowijbgdrbt.supabase.co';
+        const SUPABASE_KEY = (typeof ENV !== 'undefined' && ENV.supabaseKey) || '';
+        if (!SUPABASE_KEY) {
+          text.textContent = 'Supabase key missing in config.js';
+          banner.style.background = '#7f1d1d';
+          return;
+        }
+        const url = `${SUPABASE_URL}/rest/v1/menu_items?select=id&limit=1`;
+
+        text.textContent = 'GET ' + url;
+        try {
+          const r = await fetch(url, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY,
+            },
+          });
+          const body = await r.text();
+          if (r.ok) {
+            const j = JSON.parse(body);
+            text.textContent = 'Supabase OK — ' + (Array.isArray(j) ? j.length + ' row(s)' : 'connected');
+            banner.style.background = '#064e3b';
+          } else {
+            text.textContent = 'HTTP ' + r.status + ': ' + body.substring(0, 120);
+            banner.style.background = '#7f1d1d';
+          }
+        } catch (e) {
+          text.textContent = 'Network/JS Error: ' + e.name + ': ' + e.message;
           banner.style.background = '#7f1d1d';
         }
-      } catch (e) {
-        text.textContent = 'Network/JS Error: ' + e.name + ': ' + e.message;
-        banner.style.background = '#7f1d1d';
-      }
-      setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 1500);
-    })();
-  </script>
+        setTimeout(() => { banner.style.opacity = '0'; banner.style.transition = 'opacity 1s'; setTimeout(() => banner.remove(), 1000); }, 1500);
+      })();
+    </script>
+  </div>
 </body>
 </html>

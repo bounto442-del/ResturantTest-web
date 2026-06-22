@@ -84,8 +84,16 @@ async function pullMenuFromClover() {
   return await cloverRequest('/api/sync/pull', { method: 'POST' });
 }
 
-async function pushMenuToClover() {
-  return await cloverRequest('/api/sync/push', { method: 'POST' });
+async function checkPushMenuToClover() {
+  return await cloverRequest('/api/sync/push/check', { method: 'POST' });
+}
+
+async function pushMenuToClover(force = false) {
+  return await cloverRequest('/api/sync/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ force }),
+  });
 }
 
 async function pushOrderToClover(order) {
@@ -140,6 +148,7 @@ window.Clover = {
   scanDevices: scanCloverDevices,
   listDevices: listCloverDevices,
   pullMenu: pullMenuFromClover,
+  checkPushMenu: checkPushMenuToClover,
   pushMenu: pushMenuToClover,
   pushOrder: pushOrderToClover,
   getMerchantId: getCloverMerchantId,
