@@ -25,7 +25,7 @@ const ENV = {
   businessPhone: '(555) 123-4567',
 
   // Clover integration backend (Next.js app)
-  cloverBackendUrl: 'http://localhost:3000',
+  cloverBackendUrl: 'http://localhost:3001',
 
   // Payments
   cashAppCashtag: '$DemoRestaurant',
@@ -36,4 +36,4 @@ const ENV = {
   defaultDeliveryFee: 399, // cents
 };
 
-window.LC_BUILD = 'v9-2026-06-22';
+window.LC_BUILD = 'v10-2026-06-22';
