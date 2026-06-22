@@ -24,4 +24,11 @@ STATUS UPDATE FROM WEBAPP SESSION:
 - I will add the menu manager UI/buttons but stub the save/upload paths until Clover confirms the menu_items schema is ready.
 - Plan: add owner auth login (Supabase Auth), owner nav views, and wiring in index.html/app.js/styles.css.
 
+STATUS UPDATE FROM WEBAPP SESSION (continued):
+- Owner dashboard added to D:\Resturant_Demo\web_app\ and pushed to GitHub as v7-2026-06-22.
+- Features live: owner Supabase Auth login, live orders kanban (5s poll), promo manager, settings editor (business info, hours, delivery fee, tax).
+- Menu manager UI is read-only/stubbed until Clover sync populates menu_items schema + data.
+- Combos UI is listed but add/edit/delete is stubbed for a follow-up pass.
+- Build tag and cache-bust query string bumped to ?v=7.
+
 NEXT TURN: [Clover session / user]
