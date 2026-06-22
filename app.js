@@ -1922,6 +1922,28 @@ async function onScanCloverDevices() {
   }
 }
 
+async function onConnectWithToken() {
+  const merchantId = document.getElementById('clover-merchant-id').value.trim();
+  const token = document.getElementById('clover-api-token').value.trim();
+  const status = document.getElementById('clover-token-status');
+  if (!merchantId || !token) {
+    status.textContent = 'Enter both Merchant ID and API token.';
+    status.style.color = 'var(--primary)';
+    return;
+  }
+  status.textContent = 'Connecting…';
+  try {
+    await Clover.connectWithToken(merchantId, token);
+    status.textContent = 'Connected with token.';
+    status.style.color = '#22c55e';
+    updateCloverConnectionStatus();
+    renderCloverDevices();
+  } catch (e) {
+    status.textContent = 'Failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
 async function renderCloverDevices() {
   const list = document.getElementById('clover-devices-list');
   if (!list) return;

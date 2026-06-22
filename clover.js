@@ -46,6 +46,18 @@ function connectClover() {
   window.location.href = `${CLOVER_BACKEND}/api/auth/clover`;
 }
 
+async function connectWithToken(cloverMerchantId, apiToken) {
+  const res = await fetch(`${CLOVER_BACKEND}/api/auth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cloverMerchantId, apiToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Token connection failed');
+  setCloverMerchantId(cloverMerchantId);
+  return data;
+}
+
 async function scanCloverDevices() {
   return await cloverRequest('/api/devices/scan', { method: 'POST' });
 }
@@ -109,6 +121,7 @@ function isCloverConnected() {
 // Expose helpers globally for the inline onclick handlers in index.html.
 window.Clover = {
   connect: connectClover,
+  connectWithToken,
   scanDevices: scanCloverDevices,
   listDevices,
   pullMenu: pullMenuFromClover,
