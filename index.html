@@ -177,7 +177,16 @@
 
             <div class="card">
               <h3 class="card-title"><i class="fas fa-credit-card"></i> Payment</h3>
-              <p class="text-muted">Pay cash or card at pickup / on delivery. No prepayment required.</p>
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer">
+                  <input type="radio" name="payment-method" value="in_person" checked onchange="setPaymentMethod('in_person')" />
+                  Pay in person at pickup / counter (Clover POS)
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="radio" name="payment-method" value="online" onchange="setPaymentMethod('online')" />
+                  Pay now online (secure Clover checkout)
+                </label>
+              </div>
             </div>
           </div>
 
@@ -195,7 +204,7 @@
               <div class="summary-divider"></div>
               <div class="summary-row total"><span>Total</span><span id="sum-total">$0.00</span></div>
               <button id="place-order-btn" class="btn btn-primary btn-full btn-lg" onclick="placeOrder()">
-                <i class="fas fa-lock"></i> Place Order
+                <i class="fas fa-store"></i> Place Order (Pay in Person)
               </button>
               <p class="secure-note"><i class="fas fa-shield-alt"></i> Secured by Supabase</p>
             </div>
@@ -361,6 +370,9 @@
           <button data-owner="settings" onclick="switchOwnerView('settings');closeOwnerSidebarMobile()">
             <span>⚙️</span> <span>Settings</span>
           </button>
+          <button data-owner="clover" onclick="switchOwnerView('clover');closeOwnerSidebarMobile()">
+            <span>🍀</span> <span>Clover</span>
+          </button>
           <button onclick="ownerLogout();closeOwnerSidebarMobile()">
             <span>🚪</span> <span>Logout</span>
           </button>
@@ -456,6 +468,29 @@
           <h2 class="owner-view-title">Settings</h2>
           <div class="owner-settings-grid" id="owner-settings-grid"></div>
         </div>
+
+        <!-- Clover Integration -->
+        <div id="owner-view-clover" class="owner-view">
+          <h2 class="owner-view-title">Clover POS Integration</h2>
+          <div class="owner-settings-grid">
+            <div class="owner-setting-card">
+              <h3>Connection</h3>
+              <p class="text-muted" id="clover-connection-status">Checking…</p>
+              <button class="btn btn-primary" onclick="Clover.connect()">Connect Clover</button>
+            </div>
+            <div class="owner-setting-card">
+              <h3>Menu Sync</h3>
+              <button class="btn btn-primary" onclick="onPullCloverMenu()">Pull from Clover</button>
+              <button class="btn btn-secondary" onclick="onPushCloverMenu()" style="margin-top:8px">Push to Clover</button>
+              <p id="clover-sync-status" class="promo-message"></p>
+            </div>
+            <div class="owner-setting-card">
+              <h3>Devices</h3>
+              <button class="btn btn-primary" onclick="onScanCloverDevices()">Scan Devices</button>
+              <div id="clover-devices-list" style="margin-top:12px"></div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
@@ -469,6 +504,7 @@
   </div>
   <script src="config.js?v=9"></script>
   <script src="app.js?v=9"></script>
+  <script src="clover.js?v=1"></script>
   <script>
     // Diagnostic fetch test — runs after config.js so ENV is available.
     (async function diag() {

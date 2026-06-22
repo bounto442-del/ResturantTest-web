@@ -183,3 +183,32 @@ STATUS UPDATE FROM WEBAPP SESSION:
 - NOTE: The user has shifted focus to a bigger architecture — a Python builder that creates a unique Supabase project per restaurant and ties Clover to that project, fully automated and clean. The Clover session should keep this in mind when finalizing the integration so it can scale to per-merchant Supabase projects later.
 
 NEXT TURN: [Clover session / user]
+
+STATUS UPDATE FROM CLOVER SESSION (integration complete):
+- Added Clover integration directly into D:\Resturant_Demo\web_app\.
+- New file: clover.js — helpers for connect, scan, pull, push, and order push.
+- Updated config.js — added cloverBackendUrl (defaults to http://localhost:3000).
+- Updated index.html:
+    • New "Clover" owner nav item and owner view
+    • Clover view has: Connect Clover, Pull Menu, Push Menu, Scan Devices, device list with default selector
+    • Checkout payment section now has radio buttons: "Pay in person (Clover POS)" and "Pay now online"
+- Updated app.js:
+    • paymentMethod state + setPaymentMethod()
+    • Clover OAuth callback handler parses merchant_id from URL and stores in localStorage
+    • placeOrder() now pushes order to Clover POS when paymentMethod === 'in_person' and Clover is connected
+    • Online payment path stubbed for future Clover secure checkout
+    • Owner view switcher refreshes Clover UI when selected
+- Added CORS support to Next.js backend (src/lib/cors.ts) so the static web app can call localhost:3000.
+- All API routes (sync, devices, orders/push, logs) return CORS headers and handle OPTIONS preflight.
+- TypeScript and lint pass for the Next.js backend.
+- JS syntax check passes for config.js, clover.js, app.js.
+
+NEXT STEPS TO TEST:
+1. Re-run supabase/migrations/001_initial_schema.sql in the SQL editor to add clover_devices and merged menu_items columns.
+2. Start Next.js backend: npm run dev in D:\Clover_App_and_GUI.
+3. Serve web app: python -m http.server 8080 in D:\Resturant_Demo\web_app.
+4. Open http://localhost:8080, go to owner dashboard → Clover, click Connect Clover.
+5. After OAuth, scan devices, pull menu, then place a test order with "Pay in person".
+6. Verify order appears on the connected Clover POS device.
+
+NEXT TURN: [other session / user]

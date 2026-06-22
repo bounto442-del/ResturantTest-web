@@ -3,9 +3,11 @@ import json
 import os
 import urllib.request
 import urllib.error
+from pathlib import Path
 
 TOKEN = open('D:/github_apikey.txt').read().strip()
 REPO = 'bounto442-del/ResturantTest-web'
+BASE_DIR = Path(__file__).resolve().parent
 
 def upload(filepath, repopath):
     """Upload or update a single file on GitHub."""
@@ -25,7 +27,7 @@ def upload(filepath, repopath):
             print(f"GET {repopath}: {e.code}")
             return False
 
-    with open(os.path.join('C:/Resturant_Demo/web_app', filepath), 'rb') as f:
+    with open(BASE_DIR / filepath, 'rb') as f:
         content = base64.b64encode(f.read()).decode('utf-8')
 
     payload = {"message": f"Update {repopath}", "content": content}
@@ -55,3 +57,4 @@ upload("index.html", "index.html")
 upload("app.js", "app.js")
 upload("config.js", "config.js")
 upload("styles.css", "styles.css")
+upload("clover.js", "clover.js")

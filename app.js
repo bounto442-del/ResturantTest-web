@@ -770,6 +770,18 @@ async function placeOrder() {
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
       try { await ensureCustomerReward(phoneDigits, true); } catch (loyErr) { console.error('rewards opt-in failed', loyErr); }
     }
+    if (paymentMethod === 'in_person' && window.Clover && Clover.isConnected()) {
+      try {
+        await Clover.pushOrder(payload);
+        showToast('Order sent to Clover POS');
+      } catch (cloverErr) {
+        console.error('Clover order push failed', cloverErr);
+        showToast('Clover push failed: ' + cloverErr.message);
+      }
+    } else if (paymentMethod === 'online') {
+      // TODO: redirect to Clover secure checkout or Stripe.
+      console.log('Online payment path not yet implemented.');
+    }
     cart = [];
     currentPromo = null;
     currentReward = null;
@@ -1813,6 +1825,20 @@ function fmtPhone(digits) {
   return digits;
 }
 
+function esc(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function timeAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
 // ─── Utils ───
 function fmtMoney(cents) {
   return '$' + (cents / 100).toFixed(2);
@@ -1830,3 +1856,118 @@ function timeAgo(iso) {
   if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
   return `${Math.floor(diff/86400)}d ago`;
 }
+
+// ─── Payment Method ───
+let paymentMethod = 'in_person';
+function setPaymentMethod(mode) {
+  paymentMethod = mode;
+  const btn = document.getElementById('place-order-btn');
+  if (btn) {
+    btn.innerHTML = mode === 'online'
+      ? '<i class="fas fa-lock"></i> Continue to Payment'
+      : '<i class="fas fa-store"></i> Place Order (Pay in Person)';
+  }
+}
+
+// ─── Clover Integration UI ───
+function updateCloverConnectionStatus() {
+  const el = document.getElementById('clover-connection-status');
+  if (!el) return;
+  const merchantId = (window.Clover && Clover.getMerchantId()) || null;
+  if (merchantId) {
+    el.innerHTML = `Connected: <code>${esc(merchantId)}</code>`;
+    el.style.color = '#22c55e';
+  } else {
+    el.textContent = 'Not connected. Click Connect Clover to authorize.';
+    el.style.color = 'var(--text-muted)';
+  }
+}
+
+async function onPullCloverMenu() {
+  const status = document.getElementById('clover-sync-status');
+  status.textContent = 'Pulling menu…';
+  try {
+    const result = await Clover.pullMenu();
+    status.textContent = `Pulled ${result.pulled || 0} items, skipped ${result.skippedPull || 0}.`;
+    status.style.color = '#22c55e';
+    await loadMenu();
+  } catch (e) {
+    status.textContent = 'Pull failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
+async function onPushCloverMenu() {
+  const status = document.getElementById('clover-sync-status');
+  status.textContent = 'Pushing menu…';
+  try {
+    const result = await Clover.pushMenu();
+    status.textContent = `Created ${result.created || 0}, updated ${result.updated || 0}, skipped ${result.skippedPush || 0}.`;
+    status.style.color = '#22c55e';
+  } catch (e) {
+    status.textContent = 'Push failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
+async function onScanCloverDevices() {
+  const list = document.getElementById('clover-devices-list');
+  list.innerHTML = '<div class="muted">Scanning…</div>';
+  try {
+    const data = await Clover.scanDevices();
+    await renderCloverDevices();
+    list.innerHTML += `<div style="color:#22c55e;margin-top:8px">Found ${data.scanned || 0} device(s).</div>`;
+  } catch (e) {
+    list.innerHTML = `<div style="color:var(--primary)">Scan failed: ${esc(e.message)}</div>`;
+  }
+}
+
+async function renderCloverDevices() {
+  const list = document.getElementById('clover-devices-list');
+  if (!list) return;
+  try {
+    const data = await Clover.listDevices();
+    const devices = data.devices || [];
+    if (devices.length === 0) {
+      list.innerHTML = '<div class="muted">No devices found. Click Scan Devices.</div>';
+      return;
+    }
+    const defaultId = Clover.getDefaultDeviceId();
+    list.innerHTML = devices.map(d => `
+      <div class="owner-reward-row" style="align-items:center">
+        <div>
+          <strong>${esc(d.name || d.model || d.clover_device_id)}</strong>
+          <div class="muted">${esc(d.device_type_name || '')} · ${esc(d.serial || '')}</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <input type="radio" name="clover-default-device" value="${esc(d.clover_device_id)}"
+            ${d.clover_device_id === defaultId || d.is_default ? 'checked' : ''}
+            onchange="Clover.setDefaultDeviceId('${esc(d.clover_device_id)}')" />
+          Default
+        </label>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = `<div style="color:var(--primary)">Failed to load devices: ${esc(e.message)}</div>`;
+  }
+}
+
+// Hook into owner view switcher to refresh Clover UI when selected.
+const _origSwitchOwnerView = switchOwnerView;
+switchOwnerView = function(view) {
+  _origSwitchOwnerView(view);
+  if (view === 'clover') {
+    updateCloverConnectionStatus();
+    renderCloverDevices();
+  }
+};
+
+// ─── Clover OAuth Callback Handler ───
+(function handleCloverCallback() {
+  if (window.Clover && Clover.parseCallback) {
+    const merchantId = Clover.parseCallback();
+    if (merchantId) {
+      showToast('Clover connected: ' + merchantId);
+    }
+  }
+})();

@@ -24,6 +24,9 @@ const ENV = {
   businessAddress: '123 Main Street, City, ST 00000',
   businessPhone: '(555) 123-4567',
 
+  // Clover integration backend (Next.js app)
+  cloverBackendUrl: 'http://localhost:3000',
+
   // Payments
   cashAppCashtag: '$DemoRestaurant',
   cashAppLink: 'https://cash.app/$DemoRestaurant',
