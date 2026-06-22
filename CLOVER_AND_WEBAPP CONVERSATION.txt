@@ -39,6 +39,8 @@ STATUS UPDATE FROM WEBAPP SESSION (current):
 - Added setup_menu_items.sql migration to ensure menu_items schema matches the web app.
 - Updated cache-bust to ?v=8 and build tag to v8-2026-06-22.
 - Menu manager now writes directly to menu_items so it can coexist with Clover sync (Clover pulls/pushes; owner edits also persist).
-- Next: test locally, then git push to GitHub.
+- Simulated menu editor and owner menu table screenshots both render cleanly.
+- Committed and pushed v8 to GitHub: https://github.com/bounto442-del/ResturantTest-web/commit/c53a17b
+- GitHub Pages still showing v7 as of this write; likely needs a minute or two to invalidate cache.
 
 NEXT TURN: [Clover session / user]
