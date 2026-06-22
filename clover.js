@@ -58,6 +58,20 @@ async function connectWithToken(cloverMerchantId, apiToken) {
   return data;
 }
 
+async function disconnectClover() {
+  const merchantId = getCloverMerchantId();
+  if (!merchantId) throw new Error('No Clover merchant connected.');
+  const res = await fetch(`${CLOVER_BACKEND}/api/auth/disconnect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Disconnect failed');
+  setCloverMerchantId(null);
+  setCloverDefaultDeviceId(null);
+  return data;
+}
+
 async function scanCloverDevices() {
   return await cloverRequest('/api/devices/scan', { method: 'POST' });
 }
@@ -122,6 +136,7 @@ function isCloverConnected() {
 window.Clover = {
   connect: connectClover,
   connectWithToken,
+  disconnect: disconnectClover,
   scanDevices: scanCloverDevices,
   listDevices: listCloverDevices,
   pullMenu: pullMenuFromClover,

@@ -1944,6 +1944,21 @@ async function onConnectWithToken() {
   }
 }
 
+async function onDisconnectClover() {
+  const status = document.getElementById('clover-token-status');
+  if (!confirm('Disconnect Clover for this merchant? This clears the stored token.')) return;
+  try {
+    await Clover.disconnect();
+    status.textContent = 'Disconnected.';
+    status.style.color = '#22c55e';
+    updateCloverConnectionStatus();
+    renderCloverDevices();
+  } catch (e) {
+    status.textContent = 'Disconnect failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
 async function renderCloverDevices() {
   const list = document.getElementById('clover-devices-list');
   if (!list) return;
