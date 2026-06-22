@@ -123,7 +123,7 @@ window.Clover = {
   connect: connectClover,
   connectWithToken,
   scanDevices: scanCloverDevices,
-  listDevices,
+  listDevices: listCloverDevices,
   pullMenu: pullMenuFromClover,
   pushMenu: pushMenuToClover,
   pushOrder: pushOrderToClover,
