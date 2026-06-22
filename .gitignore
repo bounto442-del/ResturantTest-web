@@ -7,3 +7,6 @@ test_node.mjs
 .DS_Store
 .idea/
 .vscode/
+__pycache__/
+*.pyc
+
