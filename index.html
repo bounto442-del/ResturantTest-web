@@ -84,6 +84,9 @@
           <button class="chip" data-cat="Drinks">Drinks</button>
         </div>
 
+        <!-- Combo strip -->
+        <div id="combos-strip" class="combos-strip"></div>
+
         <!-- Menu Section -->
         <section class="menu-section" id="menu-section">
           <div class="section-header">
@@ -121,7 +124,10 @@
               </div>
               <div class="form-group">
                 <label>Phone Number</label>
-                <input type="tel" id="c-phone" class="input" placeholder="(956) 555-0100" />
+                <input type="tel" id="c-phone" class="input" placeholder="(956) 555-0100" onblur="normalizePhone(this);refreshPendingReward()" oninput="refreshPendingReward()" />
+              </div>
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="c-rewards-optin" /> Opt in to loyalty rewards</label>
               </div>
             </div>
 
@@ -156,6 +162,18 @@
               <p id="promo-message" class="promo-message"></p>
             </div>
 
+            <div class="card hidden" id="loyalty-reward-box">
+              <h3 class="card-title">🎖️ Loyalty Reward Available</h3>
+              <p class="promo-message" id="loyalty-reward-name"></p>
+              <button class="btn btn-primary" onclick="applyLoyaltyReward()">Apply to this order</button>
+            </div>
+            <p class="promo-message hidden" id="loyalty-active-message">🎖️ Reward applied — <button class="btn btn-sm btn-link" onclick="clearLoyaltyReward()">Remove</button></p>
+
+            <div class="card">
+              <h3 class="card-title"><i class="fas fa-sticky-note"></i> Order Notes</h3>
+              <textarea class="input" id="c-notes" rows="3" placeholder="Any special instructions for the kitchen or driver..."></textarea>
+            </div>
+
             <div class="card">
               <h3 class="card-title"><i class="fas fa-credit-card"></i> Payment</h3>
               <p class="text-muted">Pay cash or card at pickup / on delivery. No prepayment required.</p>
@@ -172,6 +190,7 @@
               <div class="summary-row"><span>Delivery Fee</span><span id="sum-delivery">$0.00</span></div>
               <div class="summary-row"><span>Tax (8.25%)</span><span id="sum-tax">$0.00</span></div>
               <div class="summary-row promo hidden" id="sum-discount-row"><span>Discount</span><span id="sum-discount">-$0.00</span></div>
+              <div class="summary-row promo hidden" id="sum-loyalty-row"><span>Loyalty</span><span id="sum-loyalty">-$0.00</span></div>
               <div class="summary-divider"></div>
               <div class="summary-row total"><span>Total</span><span id="sum-total">$0.00</span></div>
               <button id="place-order-btn" class="btn btn-primary btn-full btn-lg" onclick="placeOrder()">
@@ -301,94 +320,19 @@
       </div>
     </div>
 
-    <!-- MENU EDITOR MODAL -->
-    <div id="menu-editor-modal" class="modal">
-      <div class="modal-overlay" onclick="closeMenuEditor()"></div>
-      <div class="modal-panel">
-        <button class="modal-close" onclick="closeMenuEditor()">✕</button>
-        <h2 class="customize-title" id="menu-editor-title">Add Menu Item</h2>
-        <div id="menu-editor-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Name</label>
-              <input type="text" id="me-name" class="input" placeholder="Buffalo Wings" />
-            </div>
-            <div class="form-group">
-              <label>Emoji</label>
-              <input type="text" id="me-emoji" class="input" maxlength="2" placeholder="🍗" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Description</label>
-            <input type="text" id="me-description" class="input" placeholder="Crispy wings tossed in buffalo sauce" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Price (cents)</label>
-              <input type="number" id="me-price" class="input" placeholder="999" />
-              <p class="muted" style="font-size:11px;margin-top:2px">In cents (e.g. 999 = $9.99)</p>
-            </div>
-            <div class="form-group">
-              <label>Category</label>
-              <select id="me-category" class="input">
-                <option value="Wings">Wings</option>
-                <option value="Burgers">Burgers</option>
-                <option value="Sandwiches">Sandwiches</option>
-                <option value="Appetizers">Appetizers</option>
-                <option value="Fish & Tacos">Fish & Tacos</option>
-                <option value="Plates">Plates</option>
-                <option value="Salads">Salads</option>
-                <option value="Kids Meals">Kids Meals</option>
-                <option value="Desserts">Desserts</option>
-                <option value="Drinks">Drinks</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Sauces (comma separated)</label>
-              <input type="text" id="me-sauces" class="input" placeholder="Buffalo, BBQ, Garlic Parmesan" />
-            </div>
-            <div class="form-group">
-              <label>Display Order</label>
-              <input type="number" id="me-order" class="input" value="0" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Add Ons (Name:PriceCents, comma separated)</label>
-            <input type="text" id="me-addons" class="input" placeholder="Extra sauce:50, Celery:100" />
-            <p class="muted" style="font-size:11px;margin-top:2px">Example: Extra sauce:50, Celery:100</p>
-          </div>
-          <div class="form-group">
-            <label>Image (optional)</label>
-            <div style="display:flex;gap:10px;align-items:center">
-              <img id="me-preview" src="" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;display:none" />
-              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('me-image').click()">📷 Upload</button>
-              <input type="file" id="me-image" accept="image/*" style="display:none" onchange="handleMenuImage(this)" />
-              <input type="hidden" id="me-image-url" value="" />
-              <button id="me-remove-img" class="btn btn-secondary btn-sm" style="display:none" onclick="clearMenuImage()">Remove</button>
-            </div>
-          </div>
-          <div class="form-group" style="display:flex;gap:16px;flex-wrap:wrap">
-            <label style="display:flex;align-items:center;gap:6px">
-              <input type="checkbox" id="me-available" checked /> Available
-            </label>
-            <label style="display:flex;align-items:center;gap:6px">
-              <input type="checkbox" id="me-trending" /> Trending
-            </label>
-            <label style="display:flex;align-items:center;gap:6px">
-              <input type="checkbox" id="me-new" /> New
-            </label>
-          </div>
-          <button class="add-btn" id="me-save-btn" onclick="saveMenuItem()">Save Item</button>
-        </div>
-      </div>
-    </div>
-
     <!-- OWNER SHELL -->
     <div id="owner-shell" class="owner-shell hidden">
-      <aside class="owner-side">
+      <header class="owner-mobile-header">
+        <button class="owner-menu-toggle" onclick="toggleOwnerSidebar()" aria-label="Toggle menu">☰</button>
+        <div class="owner-brand-inline">
+          <span class="owner-brand-logo">🍗</span>
+          <div>
+            <div class="owner-brand-name">Demo Restaurant</div>
+            <div class="owner-build">Build <span id="owner-build-tag">--</span></div>
+          </div>
+        </div>
+      </header>
+      <aside class="owner-side" id="owner-side">
         <div class="owner-brand">
           <span class="owner-brand-logo">🍗</span>
           <div>
@@ -397,35 +341,56 @@
           </div>
         </div>
         <nav class="owner-nav">
-          <button class="active" data-owner="orders" onclick="switchOwnerView('orders')">
+          <button class="active" data-owner="orders" onclick="switchOwnerView('orders');closeOwnerSidebarMobile()">
             <span>📋</span> <span>Orders</span>
           </button>
-          <button data-owner="menu" onclick="switchOwnerView('menu')">
+          <button data-owner="menu" onclick="switchOwnerView('menu');closeOwnerSidebarMobile()">
             <span>🍽️</span> <span>Menu</span>
           </button>
-          <button data-owner="combos" onclick="switchOwnerView('combos')">
+          <button data-owner="combos" onclick="switchOwnerView('combos');closeOwnerSidebarMobile()">
             <span>🎁</span> <span>Combos</span>
           </button>
-          <button data-owner="promos" onclick="switchOwnerView('promos')">
+          <button data-owner="promos" onclick="switchOwnerView('promos');closeOwnerSidebarMobile()">
             <span>🏷️</span> <span>Promos</span>
           </button>
-          <button data-owner="settings" onclick="switchOwnerView('settings')">
+          <button data-owner="rewards" onclick="switchOwnerView('rewards');closeOwnerSidebarMobile()">
+            <span>🎖️</span> <span>Rewards</span>
+          </button>
+          <button data-owner="settings" onclick="switchOwnerView('settings');closeOwnerSidebarMobile()">
             <span>⚙️</span> <span>Settings</span>
           </button>
-          <button onclick="ownerLogout()">
+          <button onclick="ownerLogout();closeOwnerSidebarMobile()">
             <span>🚪</span> <span>Logout</span>
           </button>
         </nav>
       </aside>
+      <div class="owner-side-backdrop" id="owner-side-backdrop" onclick="closeOwnerSidebarMobile()"></div>
 
       <main class="owner-main">
         <!-- Orders Board -->
         <div id="owner-view-orders" class="owner-view active">
-          <h2 class="owner-view-title">Live Orders <span id="owner-orders-count"></span></h2>
-          <div class="owner-board" id="owner-board"></div>
+          <h2 class="owner-view-title">Live Orders</h2>
+          <div class="owner-board">
+            <div class="board-col">
+              <div class="board-col-title">Received <span class="board-col-count" id="count-received">0</span></div>
+              <div class="board-col-body" id="col-received"></div>
+            </div>
+            <div class="board-col">
+              <div class="board-col-title">Preparing <span class="board-col-count" id="count-preparing">0</span></div>
+              <div class="board-col-body" id="col-preparing"></div>
+            </div>
+            <div class="board-col">
+              <div class="board-col-title">Out for Delivery <span class="board-col-count" id="count-out">0</span></div>
+              <div class="board-col-body" id="col-out_for_delivery"></div>
+            </div>
+            <div class="board-col">
+              <div class="board-col-title">Delivered <span class="board-col-count" id="count-delivered">0</span></div>
+              <div class="board-col-body" id="col-delivered"></div>
+            </div>
+          </div>
         </div>
 
-        <!-- Menu Manager (stubbed for Clover sync) -->
+        <!-- Menu Manager -->
         <div id="owner-view-menu" class="owner-view">
           <div class="owner-menu-header">
             <h2 class="owner-view-title">Menu Manager</h2>
@@ -452,6 +417,38 @@
           <div class="owner-menu-table" id="owner-promos-table"></div>
         </div>
 
+        <!-- Rewards -->
+        <div id="owner-view-rewards" class="owner-view">
+          <h2 class="owner-view-title">Loyalty Rewards</h2>
+          <div class="owner-settings-grid">
+            <div class="owner-setting-card">
+              <h3>Reward Rule</h3>
+              <div class="form-group"><label>Enable rewards</label><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="rw-active" /> Active</label></div>
+              <div class="form-group"><label>Reward name (customer-facing)</label><input type="text" id="rw-name" class="input" placeholder="Free Drink" /></div>
+              <div class="form-row">
+                <div class="form-group"><label>Type</label><select id="rw-type" class="input" onchange="onRewardTypeChange()"><option value="stamps">Stamps</option><option value="purchase_qty">Purchase count</option></select></div>
+                <div class="form-group"><label>Threshold</label><input type="number" id="rw-threshold" class="input" value="10" /></div>
+              </div>
+              <div class="form-row" id="rw-target-block">
+                <div class="form-group"><label>Applies to</label><select id="rw-target-scope" class="input" onchange="onRewardTargetChange()"><option value="any">Any order</option><option value="category">Category</option><option value="item">Specific item</option></select></div>
+                <div class="form-group"><label>Target</label><input type="text" id="rw-target-value" class="input" /></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label>Reward type</label><select id="rw-reward-type" class="input" onchange="onRewardRewardTypeChange()"><option value="discount_fixed">Fixed amount off</option><option value="discount_percent">Percent off</option></select></div>
+                <div class="form-group"><label id="rw-value-label">Value (cents)</label><input type="number" id="rw-reward-value" class="input" value="0" /></div>
+              </div>
+              <button class="btn btn-primary" onclick="saveLoyaltyConfig()">Save Reward Rule</button>
+            </div>
+            <div class="owner-setting-card" style="grid-column:1/-1;">
+              <div class="owner-menu-header">
+                <h3>Customers</h3>
+                <input type="tel" id="rw-search" class="input" style="max-width:220px" placeholder="Search phone" oninput="loadCustomerRewardsList()" />
+              </div>
+              <div class="owner-rewards-list" id="owner-rewards-list"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Settings -->
         <div id="owner-view-settings" class="owner-view">
           <h2 class="owner-view-title">Settings</h2>
@@ -468,8 +465,8 @@
   <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
     <span id="diag-text">Testing connection...</span>
   </div>
-  <script src="config.js?v=8"></script>
-  <script src="app.js?v=8"></script>
+  <script src="config.js?v=9"></script>
+  <script src="app.js?v=9"></script>
   <script>
     // Diagnostic fetch test — runs after config.js so ENV is available.
     (async function diag() {
