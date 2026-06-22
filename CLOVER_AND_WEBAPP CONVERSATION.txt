@@ -86,3 +86,100 @@ NEXT ACTION NEEDED:
 3. After schema merge, user can run seed or pull from Clover.
 
 NEXT TURN: [other session / user]
+
+STATUS UPDATE FROM CLOVER SESSION:
+- Merged menu_items schema to support both web app and Clover sync columns.
+- Added clover_devices table for device scanning.
+- Added API routes:
+    POST /api/devices/scan  — scan merchant's Clover devices and save to Supabase
+    GET /api/devices          — list saved devices
+    POST /api/orders/push     — push an order to Clover POS
+- TypeScript and lint pass.
+- Updated migration is ready to re-run in Supabase SQL editor (non-destructive).
+
+NEXT ACTION NEEDED:
+- User wants to incorporate the Clover sync backend into the test web app (D:\Resturant_Demo\web_app\).
+- I will document the integration endpoints the web app can call, and suggest where the owner dashboard should add buttons:
+    1. "Connect Clover" → /api/auth/clover (opens Clover OAuth)
+    2. "Scan Clover Devices" → POST /api/devices/scan
+    3. "Pull Menu from Clover" → POST /api/sync/pull
+    4. "Push Menu to Clover" → POST /api/sync/push
+    5. "Pay in Person" order flow → POST /api/orders/push after order is created in Supabase
+- Web app owner dashboard should also display the list of scanned devices and let the owner pick a default.
+
+NEXT TURN: [other session / user]
+
+STATUS UPDATE FROM CLOVER SESSION (integration ready):
+- All sync/device/order routes now accept an optional `x-merchant-id` HTTP header as a fallback to the cookie.
+- This lets the web app call the Clover backend even if running cross-origin or not sharing cookies.
+- Example web app calls:
+
+  const CLOVER_BACKEND = "http://localhost:3000";
+  const MERCHANT_ID = "localStorage.getItem('clover_merchant_id')";
+
+  // Pull menu from Clover
+  await fetch(`${CLOVER_BACKEND}/api/sync/pull`, {
+    method: "POST",
+    headers: { "x-merchant-id": MERCHANT_ID },
+  });
+
+  // Push menu to Clover
+  await fetch(`${CLOVER_BACKEND}/api/sync/push`, {
+    method: "POST",
+    headers: { "x-merchant-id": MERCHANT_ID },
+  });
+
+  // Scan devices
+  await fetch(`${CLOVER_BACKEND}/api/devices/scan`, {
+    method: "POST",
+    headers: { "x-merchant-id": MERCHANT_ID },
+  });
+
+  // List devices
+  await fetch(`${CLOVER_BACKEND}/api/devices`, {
+    headers: { "x-merchant-id": MERCHANT_ID },
+  });
+
+  // Push order to Clover POS (pay in person)
+  await fetch(`${CLOVER_BACKEND}/api/orders/push`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      cloverMerchantId: MERCHANT_ID,
+      lineItems: [
+        { name: "Burger", price: 1099, quantity: 1, item: { id: "clover_item_id" } },
+      ],
+      note: "Pickup order #123",
+      orderType: null,
+    }),
+  });
+
+- After successful OAuth, the web app should save merchant_id (from the cookie or callback URL) into its own localStorage/supabase session.
+- Recommended owner dashboard buttons:
+    1. "Connect Clover" → open CLOVER_BACKEND/api/auth/clover
+    2. "Scan Devices" → POST /api/devices/scan
+    3. "Pull Menu from Clover" → POST /api/sync/pull
+    4. "Push Menu to Clover" → POST /api/sync/push
+    5. Show scanned devices in a dropdown to pick default payment/order device
+
+NEXT TURN: [other session / user]
+
+WE HAVE a big problem i need a python builder for uniqe resterants i also need to build a project with in supabase, and the clover needs to tie to THAT project, all this needs to be automated and cleanl
+
+STATUS UPDATE FROM WEBAPP SESSION:
+- Confirmed current Restaurant Test web app repository is the shared staging ground for the Clover/webapp integration.
+- GitHub repo: https://github.com/bounto442-del/ResturantTest-web
+- Latest commit on main: includes v9 owner dashboard parity, seed menu SQL, and addon checkbox fix.
+- Key files the Clover session should finalize against:
+    • `setup_menu_items.sql` — base menu_items schema expected by the web app
+    • `seed_menu_items.sql` — demo data for testing; currently needs merchant_id/clover_merchant_id reconciliation
+    • `setup_combos.sql` — combos table for bundle deals
+    • `setup_rewards.sql` — customer_rewards + loyalty_config in settings
+    • `config.js` — Supabase URL/key and table names; used by both customer and owner views
+    • `app.js` — owner dashboard REST helpers under `_sbOwnerHeaders()`; ready to call a Clover backend via `x-merchant-id`
+    • `index.html` — owner sidebar includes Orders, Menu, Combos, Promos, Rewards, Settings
+- The web app is static HTML/JS on GitHub Pages and talks directly to Supabase REST. Any Clover backend integration should expose CORS-friendly endpoints with an `x-merchant-id` header fallback, exactly as the Clover session proposed.
+- The web app owner dashboard is the right place to add Clover connect/sync/order buttons once the backend endpoints are finalized.
+- NOTE: The user has shifted focus to a bigger architecture — a Python builder that creates a unique Supabase project per restaurant and ties Clover to that project, fully automated and clean. The Clover session should keep this in mind when finalizing the integration so it can scale to per-merchant Supabase projects later.
+
+NEXT TURN: [Clover session / user]
