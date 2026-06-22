@@ -61,4 +61,11 @@ STATUS UPDATE FROM WEBAPP SESSION (current):
 - Committed and pushed v9 to GitHub: https://github.com/bounto442-del/ResturantTest-web
 - NOTE: Before testing owner combos/rewards, run setup_combos.sql and setup_rewards.sql in Supabase SQL Editor.
 
+STATUS UPDATE FROM WEBAPP SESSION (current):
+- Added seed_menu_items.sql with a full demo menu (~35 items) across Wings, Burgers, Sandwiches, Appetizers, Fish & Tacos, Plates, Salads, Kids Meals, Desserts, and Drinks.
+- Each item includes price in cents, emoji, sauces/addons where relevant, display order, and trending/new flags.
+- To populate the live menu: run seed_menu_items.sql in Supabase SQL Editor (it TRUNCATEs existing items first, then inserts fresh rows).
+- Committed and pushed seed file to GitHub.
+- Clover sync can still push/pull menu_items — the seed just gives the web app demo data immediately.
+
 NEXT TURN: [Clover session / user]
