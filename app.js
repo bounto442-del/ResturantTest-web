@@ -815,11 +815,13 @@ async function moveOrder(id, status) {
   } catch (e) { showToast('Update failed: ' + e.message); }
 }
 
-// ─── Owner Menu (read-only stub) ───
+// ─── Owner Menu Manager (full CRUD) ───
+let editingMenuId = null;
+
 function loadOwnerMenu() {
   const table = document.getElementById('owner-menu-table');
   if (!menuItems.length) {
-    table.innerHTML = '<div class="owner-menu-row" style="padding:40px;text-align:center;color:var(--text-muted)">Menu is empty. Use the Clover sync tool to populate menu items.</div>';
+    table.innerHTML = '<div class="owner-menu-row" style="padding:40px;text-align:center;color:var(--text-muted)">Menu is empty. Click + Add Item to build your menu.</div>';
     return;
   }
   table.innerHTML = `
@@ -830,14 +832,138 @@ function loadOwnerMenu() {
         <div class="name-cell">${esc(i.name)}<div class="muted">${esc(i.description || '')}</div></div>
         <div>${fmtMoney(i.price)}</div>
         <div>${esc(i.category || 'Other')}</div>
-        <div class="actions"><button class="edit-btn" onclick="openMenuEditor('${esc(i.id)}')">Edit</button></div>
+        <div class="actions">
+          <button class="edit-btn" onclick="openMenuEditor('${esc(i.id)}')">Edit</button>
+          <button class="delete-btn" onclick="deleteMenuItem('${esc(i.id)}')">Del</button>
+        </div>
       </div>
     `).join('')}
   `;
 }
+
 function openMenuEditor(id) {
+  editingMenuId = id || null;
   const item = menuItems.find(i => i.id === id);
-  showToast(item ? 'Menu editing is disabled while Clover sync is active.' : 'Menu editing is disabled while Clover sync is active.');
+  document.getElementById('menu-editor-title').textContent = item ? 'Edit Menu Item' : 'Add Menu Item';
+  document.getElementById('me-name').value = item?.name || '';
+  document.getElementById('me-emoji').value = item?.emoji || '🍽️';
+  document.getElementById('me-description').value = item?.description || '';
+  document.getElementById('me-price').value = item?.price || '';
+  document.getElementById('me-category').value = item?.category || 'Wings';
+  document.getElementById('me-order').value = item?.display_order ?? 0;
+  document.getElementById('me-sauces').value = (item?.sauces || []).join(', ');
+  document.getElementById('me-addons').value = (item?.addons || []).map(a => `${a.name}:${a.price}`).join(', ');
+  document.getElementById('me-available').checked = item?.available !== false;
+  document.getElementById('me-trending').checked = item?.trending || false;
+  document.getElementById('me-new').checked = item?.isNew || false;
+  document.getElementById('me-image-url').value = item?.imageUrl || '';
+  document.getElementById('me-save-btn').textContent = item ? 'Save Changes' : 'Add Item';
+  updateMenuImagePreview(item?.imageUrl || '');
+  document.getElementById('menu-editor-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMenuEditor() {
+  document.getElementById('menu-editor-modal').classList.remove('active');
+  document.body.style.overflow = '';
+  editingMenuId = null;
+}
+
+function updateMenuImagePreview(url) {
+  const img = document.getElementById('me-preview');
+  const removeBtn = document.getElementById('me-remove-img');
+  if (url) { img.src = url; img.style.display = 'block'; removeBtn.style.display = 'inline-flex'; }
+  else { img.style.display = 'none'; removeBtn.style.display = 'none'; }
+}
+
+function clearMenuImage() {
+  document.getElementById('me-image-url').value = '';
+  updateMenuImagePreview('');
+}
+
+async function handleMenuImage(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('Image too large (max 5 MB)'); input.value = ''; return; }
+  try {
+    const url = await uploadImage(file);
+    document.getElementById('me-image-url').value = url;
+    updateMenuImagePreview(url);
+    showToast('Image ready');
+  } catch (e) { showToast('Upload failed: ' + e.message); }
+  input.value = '';
+}
+
+async function uploadImage(file) {
+  const bucket = ENV.bucketMenuImages;
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-z0-9.]/gi, '_')}`;
+  const url = `${ENV.supabaseUrl}/storage/v1/object/${bucket}/${path}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'apikey': ENV.supabaseKey,
+      'Authorization': `Bearer ${ownerToken || ENV.supabaseKey}`,
+      'Content-Type': file.type,
+      'x-upsert': 'true',
+    },
+    body: file,
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return `${ENV.supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+function parseAddons(str) {
+  if (!str.trim()) return [];
+  return str.split(',').map(s => {
+    const [name, price] = s.split(':');
+    return { name: name.trim(), price: parseInt((price || '0').trim(), 10) || 0 };
+  }).filter(a => a.name);
+}
+
+async function saveMenuItem() {
+  const name = document.getElementById('me-name').value.trim();
+  const price = parseInt(document.getElementById('me-price').value, 10);
+  if (!name) { showToast('Name is required'); return; }
+  if (!price || price < 0) { showToast('Valid price is required'); return; }
+
+  const payload = {
+    name,
+    description: document.getElementById('me-description').value.trim(),
+    price,
+    category: document.getElementById('me-category').value,
+    emoji: document.getElementById('me-emoji').value.trim() || '🍽️',
+    display_order: parseInt(document.getElementById('me-order').value, 10) || 0,
+    available: document.getElementById('me-available').checked,
+    is_trending: document.getElementById('me-trending').checked,
+    is_new: document.getElementById('me-new').checked,
+    image_url: document.getElementById('me-image-url').value.trim(),
+    sauces: document.getElementById('me-sauces').value.split(',').map(s => s.trim()).filter(Boolean),
+    addons: parseAddons(document.getElementById('me-addons').value),
+  };
+
+  try {
+    if (editingMenuId) {
+      await ownerPatch(`${ENV.tableMenuItems}?id=eq.${encodeURIComponent(editingMenuId)}`, payload);
+      showToast('Menu item updated');
+    } else {
+      await ownerPost(ENV.tableMenuItems, payload);
+      showToast('Menu item added');
+    }
+    closeMenuEditor();
+    await loadMenu();
+    loadOwnerMenu();
+  } catch (e) { showToast('Save failed: ' + e.message); }
+}
+
+async function deleteMenuItem(id) {
+  const item = menuItems.find(i => i.id === id);
+  if (!confirm(`Delete "${item?.name || 'this item'}"?`)) return;
+  try {
+    await ownerDelete(`${ENV.tableMenuItems}?id=eq.${encodeURIComponent(id)}`);
+    showToast('Menu item deleted');
+    await loadMenu();
+    loadOwnerMenu();
+  } catch (e) { showToast('Delete failed: ' + e.message); }
 }
 
 // ─── Owner Combos ───

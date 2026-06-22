@@ -25,7 +25,7 @@ def upload(filepath, repopath):
             print(f"GET {repopath}: {e.code}")
             return False
 
-    with open(os.path.join('D:/Resturant_Demo/web_app', filepath), 'rb') as f:
+    with open(os.path.join('C:/Resturant_Demo/web_app', filepath), 'rb') as f:
         content = base64.b64encode(f.read()).decode('utf-8')
 
     payload = {"message": f"Update {repopath}", "content": content}

@@ -177,6 +177,8 @@ html, body { font-family: var(--font-body); background: var(--surface); color: v
 .card-title i { color: var(--primary); }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
 .input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--surface-2); border-radius: var(--radius-sm); font-size: 15px; font-family: var(--font-body); transition: border-color 0.2s; background: var(--white); }
 .input:focus { outline: none; border-color: var(--primary); }
 .input-lg { padding: 14px 18px; font-size: 16px; }

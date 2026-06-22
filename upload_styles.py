@@ -27,7 +27,7 @@ except urllib.error.HTTPError as e:
         print(e.read().decode()[:200])
 
 # 2. Upload / update
-with open('D:/Resturant_Demo/web_app/styles.css', 'rb') as f:
+with open('C:/Resturant_Demo/web_app/styles.css', 'rb') as f:
     content = base64.b64encode(f.read()).decode('utf-8')
 
 payload = {

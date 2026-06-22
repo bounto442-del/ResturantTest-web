@@ -301,6 +301,91 @@
       </div>
     </div>
 
+    <!-- MENU EDITOR MODAL -->
+    <div id="menu-editor-modal" class="modal">
+      <div class="modal-overlay" onclick="closeMenuEditor()"></div>
+      <div class="modal-panel">
+        <button class="modal-close" onclick="closeMenuEditor()">✕</button>
+        <h2 class="customize-title" id="menu-editor-title">Add Menu Item</h2>
+        <div id="menu-editor-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" id="me-name" class="input" placeholder="Buffalo Wings" />
+            </div>
+            <div class="form-group">
+              <label>Emoji</label>
+              <input type="text" id="me-emoji" class="input" maxlength="2" placeholder="🍗" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="me-description" class="input" placeholder="Crispy wings tossed in buffalo sauce" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Price (cents)</label>
+              <input type="number" id="me-price" class="input" placeholder="999" />
+              <p class="muted" style="font-size:11px;margin-top:2px">In cents (e.g. 999 = $9.99)</p>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="me-category" class="input">
+                <option value="Wings">Wings</option>
+                <option value="Burgers">Burgers</option>
+                <option value="Sandwiches">Sandwiches</option>
+                <option value="Appetizers">Appetizers</option>
+                <option value="Fish & Tacos">Fish & Tacos</option>
+                <option value="Plates">Plates</option>
+                <option value="Salads">Salads</option>
+                <option value="Kids Meals">Kids Meals</option>
+                <option value="Desserts">Desserts</option>
+                <option value="Drinks">Drinks</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Sauces (comma separated)</label>
+              <input type="text" id="me-sauces" class="input" placeholder="Buffalo, BBQ, Garlic Parmesan" />
+            </div>
+            <div class="form-group">
+              <label>Display Order</label>
+              <input type="number" id="me-order" class="input" value="0" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Add Ons (Name:PriceCents, comma separated)</label>
+            <input type="text" id="me-addons" class="input" placeholder="Extra sauce:50, Celery:100" />
+            <p class="muted" style="font-size:11px;margin-top:2px">Example: Extra sauce:50, Celery:100</p>
+          </div>
+          <div class="form-group">
+            <label>Image (optional)</label>
+            <div style="display:flex;gap:10px;align-items:center">
+              <img id="me-preview" src="" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;display:none" />
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('me-image').click()">📷 Upload</button>
+              <input type="file" id="me-image" accept="image/*" style="display:none" onchange="handleMenuImage(this)" />
+              <input type="hidden" id="me-image-url" value="" />
+              <button id="me-remove-img" class="btn btn-secondary btn-sm" style="display:none" onclick="clearMenuImage()">Remove</button>
+            </div>
+          </div>
+          <div class="form-group" style="display:flex;gap:16px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px">
+              <input type="checkbox" id="me-available" checked /> Available
+            </label>
+            <label style="display:flex;align-items:center;gap:6px">
+              <input type="checkbox" id="me-trending" /> Trending
+            </label>
+            <label style="display:flex;align-items:center;gap:6px">
+              <input type="checkbox" id="me-new" /> New
+            </label>
+          </div>
+          <button class="add-btn" id="me-save-btn" onclick="saveMenuItem()">Save Item</button>
+        </div>
+      </div>
+    </div>
+
     <!-- OWNER SHELL -->
     <div id="owner-shell" class="owner-shell hidden">
       <aside class="owner-side">
@@ -346,9 +431,6 @@
             <h2 class="owner-view-title">Menu Manager</h2>
             <button class="btn btn-primary btn-sm" onclick="openMenuEditor()">+ Add Item</button>
           </div>
-          <div class="owner-note">
-            ⚠️ Menu sync is handled by the Clover integration. Adding or editing items here is currently disabled to avoid conflicts. Use the Clover sync tool to update the menu.
-          </div>
           <div class="owner-menu-table" id="owner-menu-table"></div>
         </div>
 
@@ -386,8 +468,8 @@
   <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
     <span id="diag-text">Testing connection...</span>
   </div>
-  <script src="config.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="config.js?v=8"></script>
+  <script src="app.js?v=8"></script>
   <script>
     // Diagnostic fetch test — runs after config.js so ENV is available.
     (async function diag() {

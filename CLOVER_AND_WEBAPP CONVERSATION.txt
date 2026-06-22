@@ -32,3 +32,13 @@ STATUS UPDATE FROM WEBAPP SESSION (continued):
 - Build tag and cache-bust query string bumped to ?v=7.
 
 NEXT TURN: [Clover session / user]
+
+STATUS UPDATE FROM WEBAPP SESSION (current):
+- Local folder moved from D:\Resturant_Demo to C:\Resturant_Demo after a session reset.
+- Rebuilt the owner menu manager with full CRUD: add/edit/delete/toggle availability, sauces, addons, image upload.
+- Added setup_menu_items.sql migration to ensure menu_items schema matches the web app.
+- Updated cache-bust to ?v=8 and build tag to v8-2026-06-22.
+- Menu manager now writes directly to menu_items so it can coexist with Clover sync (Clover pulls/pushes; owner edits also persist).
+- Next: test locally, then git push to GitHub.
+
+NEXT TURN: [Clover session / user]
