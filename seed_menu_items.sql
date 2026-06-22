@@ -3,19 +3,23 @@
 -- This clears existing items and inserts a fresh demo menu.
 -- NOTE: If your merchant_id differs from the demo value below, replace it before running.
 
+-- 1. Ensure the demo merchant row exists (creates minimal merchants table if missing).
 DO $$
-DECLARE
-  demo_merchant_id UUID := '11111111-1111-1111-1111-111111111111'::UUID;
 BEGIN
-  -- Optional: create the demo merchant row if it doesn't exist (adjust table/columns if your schema differs).
-  INSERT INTO public.merchants (id, name)
-  VALUES (demo_merchant_id, 'Demo Restaurant')
-  ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+  CREATE TABLE IF NOT EXISTS public.merchants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL DEFAULT 'Demo Restaurant',
+    created_at TIMESTAMPTZ DEFAULT now()
+  );
 EXCEPTION WHEN OTHERS THEN
-  -- merchants table may not exist; ignore
   NULL;
 END $$;
 
+INSERT INTO public.merchants (id, name)
+VALUES ('11111111-1111-1111-1111-111111111111'::UUID, 'Demo Restaurant')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+
+-- 2. Wipe and re-seed menu_items.
 TRUNCATE TABLE public.menu_items RESTART IDENTITY;
 
 INSERT INTO public.menu_items
