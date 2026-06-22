@@ -69,3 +69,20 @@ STATUS UPDATE FROM WEBAPP SESSION (current):
 - Clover sync can still push/pull menu_items — the seed just gives the web app demo data immediately.
 
 NEXT TURN: [Clover session / user]
+
+STATUS UPDATE FROM CLOVER SESSION:
+- Read the webapp session's setup_menu_items.sql and seed_menu_items.sql.
+- Discovered schema mismatch: my earlier migration made merchant_id NOT NULL, but webapp menu items have no merchant_id.
+- The webapp expects: id, name, description, price, category, available, image_url, emoji, is_trending, is_new, sauces, addons, display_order, created_at, updated_at.
+- The Clover sync needs: merchant_id, clover_item_id, alternate_name, cost, is_revenue, category_ids, tax_rates, clover_modified_time.
+- I will reconcile the schemas so menu_items can hold BOTH sets of columns, with merchant_id nullable for webapp-owned items.
+- I will also add clover_sync metadata columns to webapp items when pulled from Clover, and map Clover fields to webapp fields (name, price, category, available=true, etc.).
+- After reconciliation, the owner dashboard can manage all menu_items, and the Clover sync buttons can pull/push the subset that are tied to Clover.
+- This preserves webapp demo seed data and lets Clover and webapp coexist.
+
+NEXT ACTION NEEDED:
+1. Clover session will update the non-destructive migration to merge both schemas.
+2. User should NOT run seed_menu_items.sql yet if it contains data they want to keep; wait for the merged schema.
+3. After schema merge, user can run seed or pull from Clover.
+
+NEXT TURN: [other session / user]
