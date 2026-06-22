@@ -498,7 +498,6 @@ function renderCustomize() {
   const body = document.getElementById('customize-body');
   body.innerHTML = `
     ${item.imageUrl ? `<img class="customize-image" src="${item.imageUrl}" alt="" onerror="this.style.display='none'">` : ''}
-    <h2 class="customize-title">${esc(item.name)}</h2>
     <div class="customize-price">${fmtMoney(item.price)}</div>
     <p class="customize-desc">${esc(item.description)}</p>
 
@@ -515,7 +514,8 @@ function renderCustomize() {
         ${item.addons.map(a => `
           <div class="addon-row">
             <label class="addon-info">
-              <input type="checkbox" class="addon-check" onchange="toggleAddon('${esc(a.name)}', ${a.price||0}, this.checked)">
+              <input type="checkbox" class="addon-check" ${selectedAddons.some(sa => sa.name === a.name) ? 'checked' : ''} onchange="toggleAddon('${esc(a.name)}', ${a.price||0}, this.checked)">
+              <span class="addon-checkmark"></span>
               <span class="addon-name">${esc(a.name)}</span>
             </label>
             <span class="addon-price">+${fmtMoney(a.price||0)}</span>
