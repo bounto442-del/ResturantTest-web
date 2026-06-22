@@ -15,9 +15,9 @@ EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
 
-INSERT INTO public.merchants (id, name)
-VALUES ('11111111-1111-1111-1111-111111111111'::UUID, 'Demo Restaurant')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+INSERT INTO public.merchants (id, name, clover_merchant_id)
+VALUES ('11111111-1111-1111-1111-111111111111'::UUID, 'Demo Restaurant', 'DEMO_MERCHANT')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, clover_merchant_id = EXCLUDED.clover_merchant_id;
 
 -- 2. Wipe and re-seed menu_items.
 TRUNCATE TABLE public.menu_items RESTART IDENTITY;
