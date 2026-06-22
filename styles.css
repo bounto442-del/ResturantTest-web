@@ -307,6 +307,13 @@ textarea.input { resize: vertical; min-height: 80px; line-height: 1.4; }
   .modal.active .modal-panel { transform: translateY(0) scale(1); }
 }
 
+/* Clover push safety report */
+.clover-report-section { margin-top: 16px; }
+.clover-report-section h4 { font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.clover-report-warning { background: #fff7ed; border-left: 4px solid var(--primary); color: #7c2d12; padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 10px; font-size: 14px; line-height: 1.4; }
+.clover-report-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--surface-2); font-size: 14px; }
+.clover-report-row:last-child { border-bottom: none; }
+
 /* Footer */
 .footer { background: var(--darker); color: rgba(255,255,255,0.5); padding: 40px 20px; text-align: center; margin-top: auto; }
 .footer-inner { max-width: 1200px; margin: 0 auto; }
