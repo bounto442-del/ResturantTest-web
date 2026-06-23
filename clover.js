@@ -102,17 +102,23 @@ async function pushOrderToClover(order) {
   const merchantId = getCloverMerchantId();
   if (!merchantId) throw new Error('Clover merchant not connected.');
 
-  const lineItems = (order.items || []).map(item => ({
-    name: item.name,
-    price: item.price,
-    quantity: item.qty || 1,
-  }));
+  const lineItems = (order.items || []).map(item => {
+    const qty = item.qty || 1;
+    const unitPrice = item.price || 0;
+    const addons = (item.selectedAddons || []).reduce((s, a) => s + (a.price || 0), 0);
+    return {
+      name: item.name,
+      price: unitPrice + addons,
+      quantity: qty,
+    };
+  });
 
   const body = {
     cloverMerchantId: merchantId,
     lineItems,
     note: `Order ${order.order_id || ''} — ${order.mode || ''} — ${order.customer_name || ''} — ${order.notes || ''}`.slice(0, 250),
     orderType: null,
+    linkItems: false,
   };
 
   return await fetch(`${CLOVER_BACKEND}/api/orders/push`, {
