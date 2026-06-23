@@ -378,6 +378,7 @@ class MenuItem {
   static fromDoc(d) {
     return new MenuItem({
       id: d.id,
+      clover_item_id: d.clover_item_id || null,
       name: d.name || 'Item',
       description: d.description || '',
       price: d.price || 0,
@@ -773,6 +774,7 @@ async function placeOrder() {
     mode: orderMode,
     items: cart.map(c => ({
       name: c.name,
+      clover_item_id: c.clover_item_id || null,
       qty: c.qty,
       price: c.price,
       sauce: c.sauce,
@@ -1011,11 +1013,11 @@ async function submitOnlinePayment() {
           cloverMerchantId: ENV.cloverMerchantId,
           lineItems: orderWithPayment.items.map(it => ({
             name: it.name,
+            cloverItemId: it.clover_item_id || null,
             price: it.price + (it.selectedAddons || []).reduce((a,b)=>a+b.price,0),
             quantity: it.qty,
           })),
           note: orderWithPayment.order_id,
-          linkItems: false,
         };
         console.log('[online payment] clover push note:', pushBody.note);
         const pushResp = await fetch(`${ENV.cloverBackendUrl}/api/orders/push`, {

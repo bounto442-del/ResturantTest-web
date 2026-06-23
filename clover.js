@@ -108,6 +108,7 @@ async function pushOrderToClover(order) {
     const addons = (item.selectedAddons || []).reduce((s, a) => s + (a.price || 0), 0);
     return {
       name: item.name,
+      cloverItemId: item.clover_item_id || null,
       price: unitPrice + addons,
       quantity: qty,
     };
@@ -118,7 +119,6 @@ async function pushOrderToClover(order) {
     lineItems,
     note: `Order ${order.order_id || ''} — ${order.mode || ''} — ${order.customer_name || ''} — ${order.notes || ''}`.slice(0, 250),
     orderType: null,
-    linkItems: false,
   };
 
   return await fetch(`${CLOVER_BACKEND}/api/orders/push`, {
