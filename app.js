@@ -1022,9 +1022,11 @@ async function submitOnlinePayment() {
     if (!chargeResp.ok) throw new Error(chargeText || `Payment failed (${chargeResp.status})`);
     const chargeData = JSON.parse(chargeText);
 
-    // 3) Save to Supabase with both Clover IDs.
+    // 3) Save to Supabase with both Clover IDs and actual charged amount.
+    const chargedTotal = chargeData.amount || chargeData.charge?.amount || pendingOrderPayload.total;
     let orderWithPayment = {
       ...pendingOrderPayload,
+      total: chargedTotal,
       payment_status: 'paid',
       payment_method: 'online',
       clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
