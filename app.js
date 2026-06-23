@@ -812,6 +812,8 @@ function finishOrderConfirmation(oid, cloverOrderId) {
   pendingRewardInfo = null;
   currentOrderId = oid;
   pendingOrderPayload = null;
+  updateCartUI();
+  closeCart();
   document.getElementById('confirm-id').textContent = oid;
 
   const cloverWrap = document.getElementById('confirm-clover-wrap');
@@ -827,6 +829,11 @@ function finishOrderConfirmation(oid, cloverOrderId) {
 
   navigateTo('confirmation');
   showToast('Order placed successfully!');
+}
+
+function closeCart() {
+  const d = document.getElementById('cart-drawer');
+  if (d) d.classList.remove('open');
 }
 
 // ─── Clover Online Payment ───
