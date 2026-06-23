@@ -833,11 +833,15 @@ function finishOrderConfirmation(oid, cloverOrderId) {
 function showPaymentScreen(payload) {
   navigateTo('payment');
   renderPaymentSummary(payload);
-  document.getElementById('payment-error').textContent = '';
-  loadCloverSdk().then(() => mountCloverCardElements()).catch(err => {
-    console.error('Clover SDK load failed', err);
-    document.getElementById('payment-error').textContent = 'Could not load payment form. Please try pay-in-person.';
-  });
+  const errEl = document.getElementById('payment-error');
+  errEl.textContent = '';
+  loadCloverSdk()
+    .then(() => mountCloverCardElements())
+    .then(() => { console.log('Clover payment form mounted'); })
+    .catch(err => {
+      console.error('Clover SDK/mount failed', err);
+      errEl.textContent = 'Payment form error: ' + (err?.message || String(err)) + '. Please try pay-in-person or refresh.';
+    });
 }
 
 function renderPaymentSummary(payload) {
@@ -877,22 +881,31 @@ async function mountCloverCardElements() {
   if (!publicKey) {
     throw new Error('Missing Clover public access key in config.js');
   }
-  if (!cloverSdkInstance) {
+
+  // Clear old iframes so re-entry works if the user comes back.
+  ['#card-number','#card-date','#card-cvv','#card-postal-code'].forEach(sel => {
+    const node = document.querySelector(sel);
+    if (node) node.innerHTML = '';
+  });
+  cloverCardElements = null;
+
+  try {
     cloverSdkInstance = new window.CloverSdk(publicKey);
+  } catch (ctorErr) {
+    throw new Error('Clover SDK rejected the public key: ' + (ctorErr?.message || String(ctorErr)));
   }
+
   const elements = cloverSdkInstance.elements();
-  if (!cloverCardElements) {
-    cloverCardElements = {
-      cardNumber: elements.create('cardNumber'),
-      cardDate: elements.create('cardDate'),
-      cardCvv: elements.create('cardCvv'),
-      cardPostalCode: elements.create('cardPostalCode'),
-    };
-    cloverCardElements.cardNumber.mount('#card-number');
-    cloverCardElements.cardDate.mount('#card-date');
-    cloverCardElements.cardCvv.mount('#card-cvv');
-    cloverCardElements.cardPostalCode.mount('#card-postal-code');
-  }
+  cloverCardElements = {
+    cardNumber: elements.create('CARD_NUMBER'),
+    cardDate: elements.create('CARD_DATE'),
+    cardCvv: elements.create('CARD_CVV'),
+    cardPostalCode: elements.create('CARD_POSTAL_CODE'),
+  };
+  cloverCardElements.cardNumber.mount('#card-number');
+  cloverCardElements.cardDate.mount('#card-date');
+  cloverCardElements.cardCvv.mount('#card-cvv');
+  cloverCardElements.cardPostalCode.mount('#card-postal-code');
 }
 
 async function submitOnlinePayment() {
