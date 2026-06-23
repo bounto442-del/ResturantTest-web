@@ -30,6 +30,8 @@ const ENV = {
   // Payments
   cashAppCashtag: '$DemoRestaurant',
   cashAppLink: 'https://cash.app/$DemoRestaurant',
+  cloverPublicAccessKey: '6dc45923ddf0fc88504d40de2159a25f',
+  cloverMerchantId: '077GSWKBQZAR1',
 
   // Delivery
   taxRate: 0.0825,

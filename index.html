@@ -212,6 +212,58 @@
         </div>
       </div>
 
+      <!-- PAYMENT SCREEN -->
+      <div id="screen-payment" class="screen">
+        <div class="checkout-hero">
+          <h1 class="checkout-hero-title">Secure Payment</h1>
+          <p class="checkout-hero-sub">Enter your card details to complete your order.</p>
+        </div>
+        <div class="payment-layout">
+          <div class="card">
+            <h3 class="card-title"><i class="fas fa-credit-card"></i> Card Details</h3>
+            <div class="payment-form">
+              <div class="form-group">
+                <label>Card Number</label>
+                <div id="card-number" class="clover-input"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Expiration</label>
+                  <div id="card-date" class="clover-input"></div>
+                </div>
+                <div class="form-group">
+                  <label>CVC</label>
+                  <div id="card-cvv" class="clover-input"></div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Postal Code</label>
+                <div id="card-postal-code" class="clover-input"></div>
+              </div>
+            </div>
+            <p class="promo-message" id="payment-error"></p>
+            <button id="pay-now-btn" class="btn btn-primary btn-full btn-lg">
+              <span class="pay-normal"><i class="fas fa-lock"></i> Pay <span id="payment-amount">$0.00</span></span>
+              <span class="pay-spinner hidden"><i class="fas fa-spinner fa-spin"></i> Processing…</span>
+            </button>
+            <p class="secure-note">
+              <i class="fas fa-shield-alt"></i> Payments processed securely by Clover.
+            </p>
+            <button class="btn btn-sm btn-link" onclick="switchToInPersonFromPayment()" style="margin-top:12px;">💵 Pay in person instead</button>
+            <button class="btn btn-sm btn-link" onclick="navigateTo('checkout')" style="margin-top:12px;">← Back to checkout</button>
+          </div>
+
+          <div class="summary-card">
+            <h3 class="summary-title">Order Summary</h3>
+            <div id="payment-items" class="summary-items"></div>
+            <div class="summary-divider"></div>
+            <div class="summary-row"><span>Subtotal</span><span id="pay-subtotal">$0.00</span></div>
+            <div class="summary-row"><span>Tax</span><span id="pay-tax">$0.00</span></div>
+            <div class="summary-row total"><span>Total</span><span id="pay-total">$0.00</span></div>
+          </div>
+        </div>
+      </div>
+
       <!-- CONFIRMATION SCREEN -->
       <div id="screen-confirmation" class="screen">
         <div class="confirm-center">

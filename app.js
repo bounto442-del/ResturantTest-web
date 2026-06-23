@@ -26,6 +26,9 @@ let orderMode = 'delivery';
 let currentOrderId = null;
 let pollInterval = null;
 let settings = null;
+let pendingOrderPayload = null;
+let cloverCardElements = null;
+let cloverSdkInstance = null;
 
 // ─── Owner Auth ───
 let authSession = null;
@@ -113,6 +116,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadCustomerCombos(),
   ]);
   updateHoursDisplay();
+
+  const payBtn = document.getElementById('pay-now-btn');
+  if (payBtn) payBtn.addEventListener('click', submitOnlinePayment);
 
   setInterval(() => {
     const homeScreen = document.getElementById('screen-home');
@@ -765,6 +771,14 @@ async function placeOrder() {
     notes,
   };
 
+  if (paymentMethod === 'online') {
+    pendingOrderPayload = payload;
+    showPaymentScreen(payload);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-lock"></i> Place Order';
+    return;
+  }
+
   try {
     await sbPost(TABLE_ORDERS, payload, 'return=minimal');
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
@@ -780,36 +794,227 @@ async function placeOrder() {
         console.error('Clover order push failed', cloverErr);
         showToast('Clover push failed: ' + cloverErr.message);
       }
-    } else if (paymentMethod === 'online') {
-      // TODO: redirect to Clover secure checkout or Stripe.
-      console.log('Online payment path not yet implemented.');
     }
-    cart = [];
-    currentPromo = null;
-    currentReward = null;
-    pendingRewardInfo = null;
-    currentOrderId = oid;
-    document.getElementById('confirm-id').textContent = oid;
-
-    const cloverWrap = document.getElementById('confirm-clover-wrap');
-    const cloverIdEl = document.getElementById('confirm-clover-id');
-    if (cloverWrap && cloverIdEl) {
-      if (cloverOrderId) {
-        cloverIdEl.textContent = cloverOrderId;
-        cloverWrap.classList.remove('hidden');
-      } else {
-        cloverWrap.classList.add('hidden');
-      }
-    }
-
-    navigateTo('confirmation');
-    showToast('Order placed successfully!');
+    finishOrderConfirmation(oid, cloverOrderId);
   } catch (e) {
     console.error(e);
     showToast('Order failed: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-lock"></i> Place Order';
+  }
+}
+
+function finishOrderConfirmation(oid, cloverOrderId) {
+  cart = [];
+  currentPromo = null;
+  currentReward = null;
+  pendingRewardInfo = null;
+  currentOrderId = oid;
+  pendingOrderPayload = null;
+  document.getElementById('confirm-id').textContent = oid;
+
+  const cloverWrap = document.getElementById('confirm-clover-wrap');
+  const cloverIdEl = document.getElementById('confirm-clover-id');
+  if (cloverWrap && cloverIdEl) {
+    if (cloverOrderId) {
+      cloverIdEl.textContent = cloverOrderId;
+      cloverWrap.classList.remove('hidden');
+    } else {
+      cloverWrap.classList.add('hidden');
+    }
+  }
+
+  navigateTo('confirmation');
+  showToast('Order placed successfully!');
+}
+
+// ─── Clover Online Payment ───
+function showPaymentScreen(payload) {
+  navigateTo('payment');
+  renderPaymentSummary(payload);
+  document.getElementById('payment-error').textContent = '';
+  loadCloverSdk().then(() => mountCloverCardElements()).catch(err => {
+    console.error('Clover SDK load failed', err);
+    document.getElementById('payment-error').textContent = 'Could not load payment form. Please try pay-in-person.';
+  });
+}
+
+function renderPaymentSummary(payload) {
+  const items = document.getElementById('payment-items');
+  items.innerHTML = payload.items.map(it => `
+    <div class="summary-item">
+      <span class="summary-item-name">${it.qty}× ${it.name}</span>
+      <span class="summary-item-price">${fmtMoney((it.price + it.selectedAddons.reduce((a,b)=>a+b.price,0)) * it.qty)}</span>
+    </div>
+  `).join('');
+  document.getElementById('pay-subtotal').textContent = fmtMoney(payload.subtotal);
+  document.getElementById('pay-tax').textContent = fmtMoney(payload.tax);
+  document.getElementById('pay-total').textContent = fmtMoney(payload.total);
+  document.getElementById('payment-amount').textContent = fmtMoney(payload.total);
+}
+
+async function loadCloverSdk() {
+  if (window.CloverSdk) return window.CloverSdk;
+  return new Promise((resolve, reject) => {
+    const existingClover = window.Clover;
+    const s = document.createElement('script');
+    s.src = 'https://checkout.sandbox.dev.clover.com/sdk.js';
+    s.async = true;
+    s.onload = () => {
+      const sdkClass = window.Clover;
+      window.CloverSdk = sdkClass;
+      window.Clover = existingClover;
+      resolve(sdkClass);
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function mountCloverCardElements() {
+  const publicKey = ENV.cloverPublicAccessKey;
+  if (!publicKey) {
+    throw new Error('Missing Clover public access key in config.js');
+  }
+  if (!cloverSdkInstance) {
+    cloverSdkInstance = new window.CloverSdk(publicKey);
+  }
+  const elements = cloverSdkInstance.elements();
+  if (!cloverCardElements) {
+    cloverCardElements = {
+      cardNumber: elements.create('cardNumber'),
+      cardDate: elements.create('cardDate'),
+      cardCvv: elements.create('cardCvv'),
+      cardPostalCode: elements.create('cardPostalCode'),
+    };
+    cloverCardElements.cardNumber.mount('#card-number');
+    cloverCardElements.cardDate.mount('#card-date');
+    cloverCardElements.cardCvv.mount('#card-cvv');
+    cloverCardElements.cardPostalCode.mount('#card-postal-code');
+  }
+}
+
+async function submitOnlinePayment() {
+  const btn = document.getElementById('pay-now-btn');
+  const errEl = document.getElementById('payment-error');
+  errEl.textContent = '';
+  if (!pendingOrderPayload) { showToast('No pending order'); return; }
+  if (!cloverSdkInstance) { errEl.textContent = 'Payment form not ready'; return; }
+
+  const payNormal = btn.querySelector('.pay-normal');
+  const paySpinner = btn.querySelector('.pay-spinner');
+  payNormal.classList.add('hidden');
+  paySpinner.classList.remove('hidden');
+  btn.disabled = true;
+
+  let token;
+  try {
+    const tokenResult = await cloverSdkInstance.createToken();
+    if (tokenResult.errors) throw new Error(Object.values(tokenResult.errors).join(', '));
+    token = tokenResult.token;
+  } catch (tokErr) {
+    btn.disabled = false;
+    payNormal.classList.remove('hidden');
+    paySpinner.classList.add('hidden');
+    errEl.textContent = 'Card error: ' + tokErr.message;
+    return;
+  }
+
+  try {
+    const chargeResp = await fetch(`${ENV.cloverBackendUrl}/api/payments/charge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: token,
+        amount: pendingOrderPayload.total,
+        currency: 'usd',
+        cloverMerchantId: ENV.cloverMerchantId,
+      }),
+    });
+    const chargeText = await chargeResp.text();
+    if (!chargeResp.ok) throw new Error(chargeText || `Payment failed (${chargeResp.status})`);
+    const chargeData = JSON.parse(chargeText);
+
+    let cloverOrderId = null;
+    if (ENV.cloverMerchantId) {
+      try {
+        const pushBody = {
+          cloverMerchantId: ENV.cloverMerchantId,
+          lineItems: pendingOrderPayload.items.map(it => ({
+            name: it.name,
+            price: it.price + (it.selectedAddons || []).reduce((a,b)=>a+b.price,0),
+            quantity: it.qty,
+          })),
+          note: pendingOrderPayload.order_id,
+        };
+        const pushResp = await fetch(`${ENV.cloverBackendUrl}/api/orders/push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pushBody),
+        });
+        const pushText = await pushResp.text();
+        if (pushResp.ok) {
+          const pushData = JSON.parse(pushText);
+          cloverOrderId = pushData.order?.id || null;
+        } else {
+          console.warn('Clover POS push failed after charge:', pushText);
+        }
+      } catch (pushErr) {
+        console.error('Clover POS push error after charge:', pushErr);
+      }
+    }
+
+    const orderWithPayment = {
+      ...pendingOrderPayload,
+      payment_status: 'paid',
+      payment_method: 'online',
+      clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
+      clover_order_id: cloverOrderId,
+    };
+    await sbPost(TABLE_ORDERS, orderWithPayment, 'return=minimal');
+
+    const phoneDigits = orderWithPayment.customer_phone.replace(/\D/g, '');
+    if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
+      try { await ensureCustomerReward(phoneDigits, true); } catch (loyErr) { console.error('rewards opt-in failed', loyErr); }
+    }
+
+    finishOrderConfirmation(orderWithPayment.order_id, cloverOrderId);
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false;
+    payNormal.classList.remove('hidden');
+    paySpinner.classList.add('hidden');
+    errEl.textContent = 'Payment failed: ' + e.message;
+  }
+}
+
+function switchToInPersonFromPayment() {
+  if (!pendingOrderPayload) { showToast('No pending order'); return; }
+  paymentMethod = 'in_person';
+  const payload = { ...pendingOrderPayload };
+  pendingOrderPayload = null;
+  placeSavedOrder(payload);
+}
+
+async function placeSavedOrder(payload) {
+  try {
+    await sbPost(TABLE_ORDERS, payload, 'return=minimal');
+    let cloverOrderId = null;
+    if (paymentMethod === 'in_person' && window.Clover && Clover.isConnected()) {
+      try {
+        const cloverOrder = await Clover.pushOrder(payload);
+        cloverOrderId = cloverOrder?.id || null;
+        showToast('Order sent to Clover POS');
+      } catch (cloverErr) {
+        console.error('Clover order push failed', cloverErr);
+        showToast('Clover push failed: ' + cloverErr.message);
+      }
+    }
+    finishOrderConfirmation(payload.order_id, cloverOrderId);
+  } catch (e) {
+    console.error(e);
+    showToast('Order failed: ' + e.message);
   }
 }
 
