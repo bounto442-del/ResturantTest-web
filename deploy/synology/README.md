@@ -13,7 +13,9 @@ This guide hosts only the HTML/JS frontend on the Synology NAS. The backend stay
 
 ## 2. Copy the Web App Files
 
-### Option A: Use the PowerShell script
+Deploy directly into the default Web Station root folder (`/volume1/web`) so permissions work automatically.
+
+### Option A: Use the PowerShell script (recommended)
 
 From this repo folder (`D:\Resturant_Demo\web_app`) run:
 
@@ -23,14 +25,14 @@ From this repo folder (`D:\Resturant_Demo\web_app`) run:
   -User "Claude" `
   -Password (Read-Host "Enter password" -AsSecureString) `
   -Share "web" `
-  -TargetFolder "restaurant"
+  -TargetFolder "Lets_Coffee_LLC"
 ```
 
-The script maps the NAS share, mirrors the static files into `\\192.168.4.75\web\restaurant`, then disconnects.
+The script maps the NAS share, mirrors the static files into `\\192.168.4.75\web\Lets_Coffee_LLC`, then disconnects.
 
 ### Option B: Manual copy
 
-1. In DSM, open **File Station** and create a folder, e.g. `web/restaurant`.
+1. In DSM, open **File Station** and create a folder, e.g. `web/Lets_Coffee_LLC`.
 2. From your PC, copy these files/folders into it:
    - `index.html`
    - `config.js`
@@ -41,8 +43,8 @@ The script maps the NAS share, mirrors the static files into `\\192.168.4.75\web
 
 ## 3. Test
 
-- Local: `http://192.168.4.75/restaurant` (or whichever port/path you set).
-- Public: `https://yourdomain.com`.
+- Local: `http://192.168.4.75/Lets_Coffee_LLC`
+- Public: `https://yourdomain.com/Lets_Coffee_LLC` (after DNS + Reverse Proxy setup).
 
 Open the browser console and confirm:
 - `ENV.cloverBackendUrl` still points to `https://clover-restaurant-backend.vercel.app`.
