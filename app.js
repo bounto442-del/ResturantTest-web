@@ -645,6 +645,7 @@ function goToCheckout() {
   toggleCart();
   navigateTo('checkout');
   renderCheckoutSummary();
+  setPaymentMethod(paymentMethod);
 }
 
 // ─── Checkout ───
@@ -2097,7 +2098,7 @@ function timeAgo(iso) {
 }
 
 // ─── Payment Method ───
-let paymentMethod = 'in_person';
+let paymentMethod = 'online';
 function setPaymentMethod(mode) {
   paymentMethod = mode;
   const btn = document.getElementById('place-order-btn');
