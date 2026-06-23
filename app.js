@@ -974,91 +974,71 @@ async function submitOnlinePayment() {
   }
 
   try {
-    // 1) Push to Clover first so the order has real catalog line items.
-    let cloverOrderId = null;
-    if (ENV.cloverMerchantId) {
-      try {
-        const pushBody = {
-          cloverMerchantId: ENV.cloverMerchantId,
-          lineItems: pendingOrderPayload.items.map(it => ({
-            name: it.name,
-            cloverItemId: it.clover_item_id || null,
-            price: it.price + (it.selectedAddons || []).reduce((a,b)=>a+b.price,0),
-            quantity: it.qty,
-          })),
-          note: pendingOrderPayload.order_id,
-        };
-        console.log('[online payment] clover push note:', pushBody.note);
-        const pushResp = await fetch(`${ENV.cloverBackendUrl}/api/orders/push`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(pushBody),
-        });
-        const pushText = await pushResp.text();
-        let pushData = null;
-        if (pushResp.ok) {
-          pushData = JSON.parse(pushText);
-          cloverOrderId = pushData.order?.id || null;
-        } else {
-          console.warn('Clover POS push failed before charge:', pushText);
-        }
-      } catch (pushErr) {
-        console.error('Clover POS push error before charge:', pushErr);
-      }
-    }
+    // Build the order payload exactly as the backend expects.
+    const lineItems = pendingOrderPayload.items.map(it => ({
+      name: it.name,
+      cloverItemId: it.clover_item_id || null,
+      price: it.price + (it.selectedAddons || []).reduce((a, b) => a + b.price, 0),
+      quantity: it.qty,
+    }));
 
-    // 2) Charge the card, attaching payment to the Clover order if we got one.
-    // Use the Clover-computed order total so the amount matches exactly.
-    const cloverOrderTotal = pushData?.total || pendingOrderPayload.total;
+    // Make sure our generated order_id doesn't already exist in Supabase so the
+    // Clover receipt note matches the customer's ID exactly.
+    let orderId = pendingOrderPayload.order_id;
+    for (let i = 0; i < 3; i++) {
+      const existing = await sbGet(`${TABLE_ORDERS}?select=order_id&order_id=eq.${encodeURIComponent(orderId)}&limit=1`);
+      if (!existing || existing.length === 0) break;
+      orderId = generateOrderId();
+      if (i === 2) throw new Error('Unable to reserve a unique order ID. Please try again.');
+    }
+    pendingOrderPayload.order_id = orderId;
+
+    // Create and pay the Clover order atomically. The backend creates the order,
+    // attempts the charge, and deletes the order if the charge fails, so an
+    // unpaid Clover order can never be left behind.
     const chargeResp = await fetch(`${ENV.cloverBackendUrl}/api/payments/charge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        token: token,
-        amount: cloverOrderTotal,
+        token,
+        amount: pendingOrderPayload.total,
         currency: 'usd',
         cloverMerchantId: ENV.cloverMerchantId,
-        cloverOrderId: cloverOrderId,
+        order: {
+          lineItems,
+          note: orderId,
+        },
       }),
     });
     const chargeText = await chargeResp.text();
     if (!chargeResp.ok) throw new Error(chargeText || `Payment failed (${chargeResp.status})`);
     const chargeData = JSON.parse(chargeText);
 
-    // 3) Save to Supabase with both Clover IDs and actual charged amount.
+    // Only save to Supabase once the charge succeeded.
     const chargedTotal = chargeData.amount || chargeData.charge?.amount || pendingOrderPayload.total;
-    let orderWithPayment = {
+    const orderWithPayment = {
       ...pendingOrderPayload,
+      order_id: orderId,
       total: chargedTotal,
       payment_status: 'paid',
       payment_method: 'online',
-      clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
-      clover_order_id: cloverOrderId,
+      clover_charge_id: chargeData.chargeId || chargeData.charge?.id || null,
+      clover_order_id: chargeData.cloverOrderId || null,
     };
-    let finalOid = null;
-    await sbPostOrder(TABLE_ORDERS, () => {
-      finalOid = generateOrderId();
-      orderWithPayment = { ...orderWithPayment, order_id: finalOid };
-      return orderWithPayment;
-    }, 'return=minimal');
-    if (!finalOid) {
-      throw new Error('Failed to generate a unique order ID');
-    }
-    pendingOrderPayload.order_id = finalOid;
-    console.log('[online payment] saved order id:', finalOid);
+    await sbPost(TABLE_ORDERS, orderWithPayment, 'return=minimal');
 
     const phoneDigits = orderWithPayment.customer_phone.replace(/\D/g, '');
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
       try { await ensureCustomerReward(phoneDigits, true); } catch (loyErr) { console.error('rewards opt-in failed', loyErr); }
     }
 
-    finishOrderConfirmation(orderWithPayment.order_id, cloverOrderId);
+    finishOrderConfirmation(orderWithPayment.order_id, orderWithPayment.clover_order_id);
   } catch (e) {
     console.error(e);
     btn.disabled = false;
     payNormal.classList.remove('hidden');
     paySpinner.classList.add('hidden');
-    errEl.textContent = 'Payment failed: ' + e.message;
+    errEl.textContent = 'Payment failed — order not placed: ' + e.message;
   }
 }
 
