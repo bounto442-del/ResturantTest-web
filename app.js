@@ -995,8 +995,9 @@ async function submitOnlinePayment() {
           body: JSON.stringify(pushBody),
         });
         const pushText = await pushResp.text();
+        let pushData = null;
         if (pushResp.ok) {
-          const pushData = JSON.parse(pushText);
+          pushData = JSON.parse(pushText);
           cloverOrderId = pushData.order?.id || null;
         } else {
           console.warn('Clover POS push failed before charge:', pushText);
@@ -1007,12 +1008,14 @@ async function submitOnlinePayment() {
     }
 
     // 2) Charge the card, attaching payment to the Clover order if we got one.
+    // Use the Clover-computed order total so the amount matches exactly.
+    const cloverOrderTotal = pushData.total || pendingOrderPayload.total;
     const chargeResp = await fetch(`${ENV.cloverBackendUrl}/api/payments/charge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         token: token,
-        amount: pendingOrderPayload.total,
+        amount: cloverOrderTotal,
         currency: 'usd',
         cloverMerchantId: ENV.cloverMerchantId,
         cloverOrderId: cloverOrderId,
