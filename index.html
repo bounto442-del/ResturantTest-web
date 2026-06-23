@@ -533,10 +533,17 @@
               <hr style="margin:12px 0;border:0;border-top:1px solid var(--border)" />
               <p class="text-muted" style="font-size:12px">Or paste your sandbox API token:</p>
               <input type="text" id="clover-merchant-id" class="input" placeholder="Merchant ID (e.g. 077GSWKBQZAR1)" style="margin-bottom:8px" />
-              <input type="text" id="clover-api-token" class="input" placeholder="Sandbox API token" style="margin-bottom:8px" />
+              <input type="text" id="clover-api-token" class="input" placeholder="Sandbox API token (for POS sync)" style="margin-bottom:8px" />
               <button class="btn btn-secondary" onclick="onConnectWithToken()">Connect with Token</button>
               <button class="btn btn-sm" onclick="onDisconnectClover()" style="margin-top:8px">Disconnect Clover</button>
               <p id="clover-token-status" class="promo-message"></p>
+            </div>
+            <div class="owner-setting-card">
+              <h3>Online Payments</h3>
+              <p class="text-muted" style="font-size:12px">To accept online payments, paste the <strong>Ecommerce private API token</strong> from Clover Dashboard → Settings → Ecommerce → Ecommerce API Tokens.</p>
+              <input type="password" id="clover-ecommerce-private-token" class="input" placeholder="Clover Ecommerce private token" style="margin-bottom:8px" />
+              <button class="btn btn-secondary" onclick="onSaveEcommerceToken()">Save Ecommerce Token</button>
+              <p id="clover-ecommerce-token-status" class="promo-message"></p>
             </div>
             <div class="owner-setting-card">
               <h3>Menu Sync</h3>
@@ -577,8 +584,8 @@
     <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
       <span id="diag-text">Testing connection...</span>
     </div>
-    <script src="config.js?v=14"></script>
-    <script src="app.js?v=14"></script>
+    <script src="config.js?v=15"></script>
+    <script src="app.js?v=15"></script>
     <script src="clover.js?v=5"></script>
     <script>
       // Diagnostic fetch test — runs after config.js so ENV is available.

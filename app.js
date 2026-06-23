@@ -2241,6 +2241,7 @@ async function onScanCloverDevices() {
 async function onConnectWithToken() {
   const merchantId = document.getElementById('clover-merchant-id').value.trim();
   const token = document.getElementById('clover-api-token').value.trim();
+  const ecommerceToken = document.getElementById('clover-ecommerce-private-token')?.value?.trim() || '';
   const status = document.getElementById('clover-token-status');
   if (!merchantId || !token) {
     status.textContent = 'Enter both Merchant ID and API token.';
@@ -2249,11 +2250,42 @@ async function onConnectWithToken() {
   }
   status.textContent = 'Connecting…';
   try {
-    await Clover.connectWithToken(merchantId, token);
+    await Clover.connectWithToken(merchantId, token, ecommerceToken);
     status.textContent = 'Connected with token.';
     status.style.color = '#22c55e';
     updateCloverConnectionStatus();
     renderCloverDevices();
+  } catch (e) {
+    status.textContent = 'Failed: ' + e.message;
+    status.style.color = 'var(--primary)';
+  }
+}
+
+async function onSaveEcommerceToken() {
+  const merchantId = Clover.getMerchantId() || document.getElementById('clover-merchant-id')?.value?.trim();
+  const token = document.getElementById('clover-ecommerce-private-token').value.trim();
+  const status = document.getElementById('clover-ecommerce-token-status');
+  if (!merchantId) {
+    status.textContent = 'Enter or connect a Clover Merchant ID first.';
+    status.style.color = 'var(--primary)';
+    return;
+  }
+  if (!token) {
+    status.textContent = 'Paste the Ecommerce private token.';
+    status.style.color = 'var(--primary)';
+    return;
+  }
+  status.textContent = 'Saving…';
+  try {
+    const res = await fetch(`${ENV.cloverBackendUrl}/api/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cloverMerchantId: merchantId, ecommercePrivateToken: token }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Save failed (${res.status})`);
+    status.textContent = 'Ecommerce token saved.';
+    status.style.color = '#22c55e';
   } catch (e) {
     status.textContent = 'Failed: ' + e.message;
     status.style.color = 'var(--primary)';
