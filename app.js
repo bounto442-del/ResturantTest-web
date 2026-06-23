@@ -174,6 +174,30 @@ async function sbPost(path, body, prefer = 'return=representation') {
   if (!r.ok) throw new Error(`${r.status}: ${text}`);
   return text ? JSON.parse(text) : null;
 }
+
+/**
+ * Post an order with retry on duplicate order_id (409/unique-violation).
+ * bodyFactory should return a fresh payload each call, including a new order_id.
+ */
+async function sbPostOrder(path, bodyFactory, prefer = 'return=minimal', maxRetries = 3) {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    const body = bodyFactory();
+    try {
+      return await sbPost(path, body, prefer);
+    } catch (e) {
+      lastError = e;
+      const msg = e.message || '';
+      if (msg.includes('409') || msg.includes('23505') || /duplicate/i.test(msg)) {
+        console.warn(`Duplicate order_id detected, retrying (${i + 1}/${maxRetries})...`);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastError;
+}
+
 async function sbPatch(path, body) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method: 'PATCH',
@@ -742,10 +766,7 @@ async function placeOrder() {
   const delivery = orderMode === 'delivery' ? deliveryFee : 0;
   const loyaltyDisc = currentReward ? currentReward.discountCents : 0;
   const total = subtotal + tax + delivery - disc - loyaltyDisc;
-  const oid = generateOrderId();
-
-  const payload = {
-    order_id: oid,
+  const basePayload = {
     customer_name: name,
     customer_phone: phoneDigits || phoneRaw,
     address: orderMode === 'delivery' ? address : 'Pickup',
@@ -772,23 +793,31 @@ async function placeOrder() {
     notes,
   };
 
+  let oid = generateOrderId();
+
   if (paymentMethod === 'online') {
-    pendingOrderPayload = payload;
-    showPaymentScreen(payload);
+    pendingOrderPayload = { ...basePayload, order_id: oid };
+    showPaymentScreen(pendingOrderPayload);
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-lock"></i> Place Order';
     return;
   }
 
   try {
-    await sbPost(TABLE_ORDERS, payload, 'return=minimal');
+    let finalOid = null;
+    await sbPostOrder(TABLE_ORDERS, () => {
+      finalOid = generateOrderId();
+      return { ...basePayload, order_id: finalOid };
+    }, 'return=minimal');
+    oid = finalOid || oid;
+    const savedPayload = { ...basePayload, order_id: oid };
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
       try { await ensureCustomerReward(phoneDigits, true); } catch (loyErr) { console.error('rewards opt-in failed', loyErr); }
     }
     let cloverOrderId = null;
     if (paymentMethod === 'in_person' && window.Clover && Clover.isConnected()) {
       try {
-        const cloverOrder = await Clover.pushOrder(payload);
+        const cloverOrder = await Clover.pushOrder(savedPayload);
         cloverOrderId = cloverOrder?.id || null;
         showToast('Order sent to Clover POS');
       } catch (cloverErr) {
@@ -986,14 +1015,19 @@ async function submitOnlinePayment() {
       }
     }
 
-    const orderWithPayment = {
+    let orderWithPayment = {
       ...pendingOrderPayload,
       payment_status: 'paid',
       payment_method: 'online',
       clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
       clover_order_id: cloverOrderId,
     };
-    await sbPost(TABLE_ORDERS, orderWithPayment, 'return=minimal');
+    let finalOid = null;
+    await sbPostOrder(TABLE_ORDERS, () => {
+      finalOid = generateOrderId();
+      orderWithPayment = { ...orderWithPayment, order_id: finalOid };
+      return orderWithPayment;
+    }, 'return=minimal');
 
     const phoneDigits = orderWithPayment.customer_phone.replace(/\D/g, '');
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
@@ -1020,11 +1054,17 @@ function switchToInPersonFromPayment() {
 
 async function placeSavedOrder(payload) {
   try {
-    await sbPost(TABLE_ORDERS, payload, 'return=minimal');
+    let savedPayload = { ...payload };
+    let finalOid = null;
+    await sbPostOrder(TABLE_ORDERS, () => {
+      finalOid = generateOrderId();
+      savedPayload = { ...savedPayload, order_id: finalOid };
+      return savedPayload;
+    }, 'return=minimal');
     let cloverOrderId = null;
     if (paymentMethod === 'in_person' && window.Clover && Clover.isConnected()) {
       try {
-        const cloverOrder = await Clover.pushOrder(payload);
+        const cloverOrder = await Clover.pushOrder(savedPayload);
         cloverOrderId = cloverOrder?.id || null;
         showToast('Order sent to Clover POS');
       } catch (cloverErr) {
@@ -1032,7 +1072,7 @@ async function placeSavedOrder(payload) {
         showToast('Clover push failed: ' + cloverErr.message);
       }
     }
-    finishOrderConfirmation(payload.order_id, cloverOrderId);
+    finishOrderConfirmation(savedPayload.order_id, cloverOrderId);
   } catch (e) {
     console.error(e);
     showToast('Order failed: ' + e.message);
@@ -1042,8 +1082,9 @@ async function placeSavedOrder(payload) {
 function generateOrderId() {
   const d = new Date();
   const date = d.toISOString().slice(0,10).replace(/-/g,'');
-  const rand = Math.floor(Math.random()*900)+100;
-  return `DEMO-${date}-${rand}`;
+  const time = d.toISOString().slice(11,19).replace(/:/g,'');
+  const rand = Math.floor(Math.random()*9000)+1000;
+  return `DEMO-${date}-${time}-${rand}`;
 }
 
 function startTrackingFromConfirm() {
