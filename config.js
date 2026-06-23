@@ -38,4 +38,4 @@ const ENV = {
   defaultDeliveryFee: 399, // cents
 };
 
-window.LC_BUILD = 'v15-2026-06-23';
+window.LC_BUILD = 'v16-2026-06-23';

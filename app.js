@@ -998,6 +998,11 @@ async function submitOnlinePayment() {
       orderWithPayment = { ...orderWithPayment, order_id: finalOid };
       return orderWithPayment;
     }, 'return=minimal');
+    if (!finalOid) {
+      throw new Error('Failed to generate a unique order ID');
+    }
+    pendingOrderPayload.order_id = finalOid;
+    console.log('[online payment] saved order id:', finalOid);
 
     let cloverOrderId = null;
     if (ENV.cloverMerchantId) {
@@ -1012,6 +1017,7 @@ async function submitOnlinePayment() {
           note: orderWithPayment.order_id,
           linkItems: false,
         };
+        console.log('[online payment] clover push note:', pushBody.note);
         const pushResp = await fetch(`${ENV.cloverBackendUrl}/api/orders/push`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
