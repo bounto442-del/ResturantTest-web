@@ -1,10 +1,10 @@
 # Deploy the static Restaurant web app to a Synology NAS shared folder.
 # Run from the web_app repo root, e.g.:
-#   .\deploy\synology\deploy.ps1 -NasIp "192.168.4.75" -User "Claude" -Share "web" -TargetFolder "restaurant"
+#   .\deploy\synology\deploy.ps1 -NasIp "192.168.4.75" -User "Claude" -Share "usbshare1" -TargetFolder "WEB/Lets_Coffee_LLC"
 param(
   [Parameter(Mandatory)] [string] $NasIp,
   [Parameter(Mandatory)] [string] $User,
-  [Parameter(Mandatory)] [SecureString] $Password,
+  [SecureString] $Password = $null,
   [Parameter(Mandatory)] [string] $Share,
   [string] $TargetFolder = "restaurant",
   [string] $Source = ".",
@@ -13,41 +13,58 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password))
-$driveLetter = $null
-
-for ($c = [char]'Z'; $c -ge [char]'D'; $c--) {
-  $letter = "$($c):"
-  if (-not (Test-Path $letter)) { $driveLetter = $letter; break }
+function Get-FreeDriveLetter {
+  for ($i = 90; $i -ge 68; $i--) {
+    $letter = [char]$i
+    $path = "$letter`:\"
+    if (-not (Test-Path $path)) { return $letter }
+  }
+  throw "No free drive letter available"
 }
 
-if (-not $driveLetter) { throw "No free drive letter available" }
+if (-not $Password) {
+  $Password = Read-Host "Enter password for $User" -AsSecureString
+}
+
+$plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password))
+$driveLetter = Get-FreeDriveLetter
+$networkPath = "\\$NasIp\$Share"
+$driveRoot = "$driveLetter`:\"
+
+# Explicit directory vs file exclusions for robocopy.
+$xdList = @(".git", "node_modules", "deploy", "__pycache__")
+$xfList = @("*.md", ".gitignore", "package*.json", "*.log")
 
 try {
-  Write-Host "Mapping $driveLetter to \\$NasIp\$Share ..."
-  $cred = New-Object System.Management.Automation.PSCredential($User, (ConvertTo-SecureString $plainPassword -AsPlainText -Force))
-  New-PSDrive -Name ($driveLetter.TrimEnd(':')) -PSProvider FileSystem -Root "\\$NasIp\$Share" -Credential $cred -Scope Script | Out-Null
+  Write-Host "Mapping ${driveLetter}: to $networkPath ..."
+  $netUseOutput = net use "${driveLetter}:" "$networkPath" "$plainPassword" /user:$User /persistent:no 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "net use failed: $netUseOutput"
+  }
 
-  $dest = Join-Path $driveLetter $TargetFolder
+  $dest = Join-Path $driveRoot $TargetFolder
   if (-not (Test-Path $dest)) {
     Write-Host "Creating $dest ..."
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
   }
 
-  Write-Host "Copying static files to $dest ..."
-  $robocopyArgs = @(
-    (Resolve-Path $Source).Path,
-    $dest,
-    "/MIR",
-    "/XD", ($Exclude | Where-Object { $_ -notlike "*.*" }) -join " ",
-    "/XF", ($Exclude | Where-Object { $_ -like "*.*" }) -join " "
-  ) | ForEach-Object { $_ }
+  $sourcePath = (Resolve-Path $Source).Path
+  Write-Host "Copying static files from $sourcePath to $dest ..."
+
+  $robocopyArgs = @($sourcePath, $dest, "/MIR", "/R:3", "/W:5")
+  if ($xdList) {
+    $robocopyArgs += "/XD"
+    $robocopyArgs += $xdList
+  }
+  if ($xfList) {
+    $robocopyArgs += "/XF"
+    $robocopyArgs += $xfList
+  }
+
   & robocopy @robocopyArgs
   if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE" }
 
-  Write-Host "Done. App deployed to \\$NasIp\$Share\$TargetFolder"
+  Write-Host "Done. App deployed to $networkPath\$TargetFolder"
 } finally {
-  if ($driveLetter) {
-    Remove-PSDrive -Name ($driveLetter.TrimEnd(':')) -Force -ErrorAction SilentlyContinue
-  }
+  net use "${driveLetter}:" /delete /y 2>&1 | Out-Null
 }
