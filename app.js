@@ -986,17 +986,31 @@ async function submitOnlinePayment() {
     if (!chargeResp.ok) throw new Error(chargeText || `Payment failed (${chargeResp.status})`);
     const chargeData = JSON.parse(chargeText);
 
+    let orderWithPayment = {
+      ...pendingOrderPayload,
+      payment_status: 'paid',
+      payment_method: 'online',
+      clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
+    };
+    let finalOid = null;
+    await sbPostOrder(TABLE_ORDERS, () => {
+      finalOid = generateOrderId();
+      orderWithPayment = { ...orderWithPayment, order_id: finalOid };
+      return orderWithPayment;
+    }, 'return=minimal');
+
     let cloverOrderId = null;
     if (ENV.cloverMerchantId) {
       try {
         const pushBody = {
           cloverMerchantId: ENV.cloverMerchantId,
-          lineItems: pendingOrderPayload.items.map(it => ({
+          lineItems: orderWithPayment.items.map(it => ({
             name: it.name,
             price: it.price + (it.selectedAddons || []).reduce((a,b)=>a+b.price,0),
             quantity: it.qty,
           })),
-          note: pendingOrderPayload.order_id,
+          note: orderWithPayment.order_id,
+          linkItems: false,
         };
         const pushResp = await fetch(`${ENV.cloverBackendUrl}/api/orders/push`, {
           method: 'POST',
@@ -1014,20 +1028,7 @@ async function submitOnlinePayment() {
         console.error('Clover POS push error after charge:', pushErr);
       }
     }
-
-    let orderWithPayment = {
-      ...pendingOrderPayload,
-      payment_status: 'paid',
-      payment_method: 'online',
-      clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
-      clover_order_id: cloverOrderId,
-    };
-    let finalOid = null;
-    await sbPostOrder(TABLE_ORDERS, () => {
-      finalOid = generateOrderId();
-      orderWithPayment = { ...orderWithPayment, order_id: finalOid };
-      return orderWithPayment;
-    }, 'return=minimal');
+    orderWithPayment.clover_order_id = cloverOrderId;
 
     const phoneDigits = orderWithPayment.customer_phone.replace(/\D/g, '');
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
