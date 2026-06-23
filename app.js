@@ -1300,6 +1300,7 @@ function renderBoardOrder(o, status) {
         ${nextStatus ? `<button class="btn-move" onclick="moveOrder('${orderIdSafe}','${nextStatus}')">${labelFor(nextStatus)}</button>` : ''}
         ${status !== 'cancelled' ? `<button class="btn-cancel" onclick="moveOrder('${orderIdSafe}','cancelled')">Cancel</button>` : ''}
         ${mapHref ? `<a class="map-btn" href="${mapHref}" target="_blank" rel="noopener">🗺️ Map</a>` : ''}
+        <button class="delete-btn" onclick="deleteOwnerOrder('${orderIdSafe}')" title="Delete from Supabase and Clover">🗑️</button>
       </div>
     </div>
   `;
@@ -1355,6 +1356,20 @@ async function moveOrder(orderId, status) {
     showToast(`Moved ${orderId} → ${status.replace(/_/g,' ')}`);
     renderOwnerOrders();
   } catch (e) { showToast('Update failed: ' + e.message); }
+}
+async function deleteOwnerOrder(orderId) {
+  if (!confirm(`Delete order ${orderId}?\n\nThis will remove it from Supabase and try to remove the matching Clover order.`)) return;
+  try {
+    const resp = await fetch(`${ENV.cloverBackendUrl}/api/orders/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    });
+    const text = await resp.text();
+    if (!resp.ok) throw new Error(text || `Delete failed (${resp.status})`);
+    showToast(`Deleted ${orderId}`);
+    renderOwnerOrders();
+  } catch (e) { showToast('Delete failed: ' + e.message); }
 }
 
 // ─── Owner Menu ───
