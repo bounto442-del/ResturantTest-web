@@ -1009,7 +1009,7 @@ async function submitOnlinePayment() {
 
     // 2) Charge the card, attaching payment to the Clover order if we got one.
     // Use the Clover-computed order total so the amount matches exactly.
-    const cloverOrderTotal = pushData.total || pendingOrderPayload.total;
+    const cloverOrderTotal = pushData?.total || pendingOrderPayload.total;
     const chargeResp = await fetch(`${ENV.cloverBackendUrl}/api/payments/charge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
