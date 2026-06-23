@@ -974,50 +974,19 @@ async function submitOnlinePayment() {
   }
 
   try {
-    const chargeResp = await fetch(`${ENV.cloverBackendUrl}/api/payments/charge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: token,
-        amount: pendingOrderPayload.total,
-        currency: 'usd',
-        cloverMerchantId: ENV.cloverMerchantId,
-      }),
-    });
-    const chargeText = await chargeResp.text();
-    if (!chargeResp.ok) throw new Error(chargeText || `Payment failed (${chargeResp.status})`);
-    const chargeData = JSON.parse(chargeText);
-
-    let orderWithPayment = {
-      ...pendingOrderPayload,
-      payment_status: 'paid',
-      payment_method: 'online',
-      clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
-    };
-    let finalOid = null;
-    await sbPostOrder(TABLE_ORDERS, () => {
-      finalOid = generateOrderId();
-      orderWithPayment = { ...orderWithPayment, order_id: finalOid };
-      return orderWithPayment;
-    }, 'return=minimal');
-    if (!finalOid) {
-      throw new Error('Failed to generate a unique order ID');
-    }
-    pendingOrderPayload.order_id = finalOid;
-    console.log('[online payment] saved order id:', finalOid);
-
+    // 1) Push to Clover first so the order has real catalog line items.
     let cloverOrderId = null;
     if (ENV.cloverMerchantId) {
       try {
         const pushBody = {
           cloverMerchantId: ENV.cloverMerchantId,
-          lineItems: orderWithPayment.items.map(it => ({
+          lineItems: pendingOrderPayload.items.map(it => ({
             name: it.name,
             cloverItemId: it.clover_item_id || null,
             price: it.price + (it.selectedAddons || []).reduce((a,b)=>a+b.price,0),
             quantity: it.qty,
           })),
-          note: orderWithPayment.order_id,
+          note: pendingOrderPayload.order_id,
         };
         console.log('[online payment] clover push note:', pushBody.note);
         const pushResp = await fetch(`${ENV.cloverBackendUrl}/api/orders/push`, {
@@ -1030,13 +999,48 @@ async function submitOnlinePayment() {
           const pushData = JSON.parse(pushText);
           cloverOrderId = pushData.order?.id || null;
         } else {
-          console.warn('Clover POS push failed after charge:', pushText);
+          console.warn('Clover POS push failed before charge:', pushText);
         }
       } catch (pushErr) {
-        console.error('Clover POS push error after charge:', pushErr);
+        console.error('Clover POS push error before charge:', pushErr);
       }
     }
-    orderWithPayment.clover_order_id = cloverOrderId;
+
+    // 2) Charge the card, attaching payment to the Clover order if we got one.
+    const chargeResp = await fetch(`${ENV.cloverBackendUrl}/api/payments/charge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: token,
+        amount: pendingOrderPayload.total,
+        currency: 'usd',
+        cloverMerchantId: ENV.cloverMerchantId,
+        cloverOrderId: cloverOrderId,
+      }),
+    });
+    const chargeText = await chargeResp.text();
+    if (!chargeResp.ok) throw new Error(chargeText || `Payment failed (${chargeResp.status})`);
+    const chargeData = JSON.parse(chargeText);
+
+    // 3) Save to Supabase with both Clover IDs.
+    let orderWithPayment = {
+      ...pendingOrderPayload,
+      payment_status: 'paid',
+      payment_method: 'online',
+      clover_charge_id: chargeData.charge?.id || chargeData.chargeId || null,
+      clover_order_id: cloverOrderId,
+    };
+    let finalOid = null;
+    await sbPostOrder(TABLE_ORDERS, () => {
+      finalOid = generateOrderId();
+      orderWithPayment = { ...orderWithPayment, order_id: finalOid };
+      return orderWithPayment;
+    }, 'return=minimal');
+    if (!finalOid) {
+      throw new Error('Failed to generate a unique order ID');
+    }
+    pendingOrderPayload.order_id = finalOid;
+    console.log('[online payment] saved order id:', finalOid);
 
     const phoneDigits = orderWithPayment.customer_phone.replace(/\D/g, '');
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
