@@ -792,6 +792,8 @@ async function placeOrder() {
     promo_code: currentPromo?.code || '',
     total,
     status: 'received',
+    payment_status: 'pending',
+    payment_method: paymentMethod === 'online' ? 'online' : paymentMethod === 'in_person' ? 'in_person' : 'cash',
     notes,
   };
 
@@ -807,10 +809,25 @@ async function placeOrder() {
 
   try {
     let finalOid = null;
-    await sbPostOrder(TABLE_ORDERS, () => {
-      finalOid = generateOrderId();
-      return { ...basePayload, order_id: finalOid };
-    }, 'return=minimal');
+    try {
+      await sbPostOrder(TABLE_ORDERS, () => {
+        finalOid = generateOrderId();
+        return { ...basePayload, order_id: finalOid };
+      }, 'return=minimal');
+    } catch (saveErr) {
+      // If the orders table is missing payment columns, retry without them.
+      const msg = saveErr.message || '';
+      if (/payment_status|payment_method|204/.test(msg)) {
+        const stripped = { ...basePayload };
+        delete stripped.payment_status;
+        delete stripped.payment_method;
+        finalOid = generateOrderId();
+        await sbPost(TABLE_ORDERS, { ...stripped, order_id: finalOid }, 'return=minimal');
+        showToast('Order placed — add payment columns in Supabase to track payments');
+      } else {
+        throw saveErr;
+      }
+    }
     oid = finalOid || oid;
     const savedPayload = { ...basePayload, order_id: oid };
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
@@ -821,6 +838,15 @@ async function placeOrder() {
       try {
         const cloverOrder = await Clover.pushOrder(savedPayload);
         cloverOrderId = cloverOrder?.id || null;
+        if (cloverOrderId) {
+          try {
+            await sbPatch(`${TABLE_ORDERS}?order_id=eq.${encodeURIComponent(oid)}`, {
+              clover_order_id: cloverOrderId,
+            });
+          } catch (patchErr) {
+            console.error('Could not save Clover order id', patchErr);
+          }
+        }
         showToast('Order sent to Clover POS');
       } catch (cloverErr) {
         console.error('Clover order push failed', cloverErr);
@@ -837,7 +863,7 @@ async function placeOrder() {
   }
 }
 
-function finishOrderConfirmation(oid, cloverOrderId) {
+function finishOrderConfirmation(oid, cloverOrderId, paymentStatus = 'pending') {
   cart = [];
   currentPromo = null;
   currentReward = null;
@@ -859,8 +885,49 @@ function finishOrderConfirmation(oid, cloverOrderId) {
     }
   }
 
+  const payWrap = document.getElementById('confirm-payment-wrap');
+  const payStatusEl = document.getElementById('confirm-payment-status');
+  if (payWrap && payStatusEl) {
+    payStatusEl.textContent = paymentStatus === 'paid' ? 'Paid ✓' : 'Pending';
+    payWrap.classList.remove('hidden');
+  }
+
+  const simBtn = document.getElementById('simulate-paid-btn');
+  if (simBtn) {
+    simBtn.disabled = false;
+    simBtn.classList.remove('paid');
+    simBtn.innerHTML = '<i class="fas fa-check-circle"></i> Simulate: Mark as Paid';
+  }
+
   navigateTo('confirmation');
   showToast('Order placed successfully!');
+}
+
+async function simulateMarkPaid() {
+  if (!currentOrderId) { showToast('No order to mark paid'); return; }
+  const simBtn = document.getElementById('simulate-paid-btn');
+  if (simBtn) { simBtn.disabled = true; simBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...'; }
+  try {
+    await sbPatch(`${TABLE_ORDERS}?order_id=eq.${encodeURIComponent(currentOrderId)}`, {
+      payment_status: 'paid',
+      payment_method: 'simulated',
+      updated_at: new Date().toISOString(),
+    });
+    const payStatusEl = document.getElementById('confirm-payment-status');
+    if (payStatusEl) payStatusEl.textContent = 'Paid ✓';
+    if (simBtn) {
+      simBtn.classList.add('paid');
+      simBtn.innerHTML = '<i class="fas fa-check"></i> Marked as Paid';
+    }
+    showToast(`Order ${currentOrderId} marked paid (simulation)`);
+  } catch (e) {
+    console.error(e);
+    showToast('Could not mark paid: ' + e.message);
+    if (simBtn) {
+      simBtn.disabled = false;
+      simBtn.innerHTML = '<i class="fas fa-check-circle"></i> Simulate: Mark as Paid';
+    }
+  }
 }
 
 function closeCart() {
@@ -1025,14 +1092,32 @@ async function submitOnlinePayment() {
       clover_charge_id: chargeData.chargeId || chargeData.charge?.id || null,
       clover_order_id: chargeData.cloverOrderId || null,
     };
-    await sbPost(TABLE_ORDERS, orderWithPayment, 'return=minimal');
+    try {
+      await sbPost(TABLE_ORDERS, orderWithPayment, 'return=minimal');
+    } catch (saveErr) {
+      // If the orders table is missing payment columns, retry without them so
+      // the order is still recorded.
+      const msg = saveErr.message || '';
+      const missingPaymentCol = /payment_status|payment_method|clover_charge_id|clover_order_id|204/.test(msg);
+      if (missingPaymentCol) {
+        const fallback = { ...orderWithPayment };
+        delete fallback.payment_status;
+        delete fallback.payment_method;
+        delete fallback.clover_charge_id;
+        delete fallback.clover_order_id;
+        await sbPost(TABLE_ORDERS, fallback, 'return=minimal');
+        showToast('Order placed — add payment columns in Supabase to track payments');
+      } else {
+        throw saveErr;
+      }
+    }
 
     const phoneDigits = orderWithPayment.customer_phone.replace(/\D/g, '');
     if (phoneDigits.length >= 10 && document.getElementById('c-rewards-optin')?.checked) {
       try { await ensureCustomerReward(phoneDigits, true); } catch (loyErr) { console.error('rewards opt-in failed', loyErr); }
     }
 
-    finishOrderConfirmation(orderWithPayment.order_id, orderWithPayment.clover_order_id);
+    finishOrderConfirmation(orderWithPayment.order_id, orderWithPayment.clover_order_id, 'paid');
   } catch (e) {
     console.error(e);
     btn.disabled = false;
@@ -1064,6 +1149,15 @@ async function placeSavedOrder(payload) {
       try {
         const cloverOrder = await Clover.pushOrder(savedPayload);
         cloverOrderId = cloverOrder?.id || null;
+        if (cloverOrderId) {
+          try {
+            await sbPatch(`${TABLE_ORDERS}?order_id=eq.${encodeURIComponent(savedPayload.order_id)}`, {
+              clover_order_id: cloverOrderId,
+            });
+          } catch (patchErr) {
+            console.error('Could not save Clover order id', patchErr);
+          }
+        }
         showToast('Order sent to Clover POS');
       } catch (cloverErr) {
         console.error('Clover order push failed', cloverErr);
@@ -1339,6 +1433,25 @@ async function moveOrder(orderId, status) {
     const [order] = await sbGetO(`${TABLE_ORDERS}?select=*&order_id=eq.${encodeURIComponent(orderId)}&limit=1`) || [];
     const prevStatus = order?.status || 'received';
     await sbPatchO(`${TABLE_ORDERS}?order_id=eq.${encodeURIComponent(orderId)}`, { status });
+
+    // When an order is cancelled, also remove it from Clover sandbox so it
+    // doesn't sit open in the POS. We keep the Supabase record as cancelled.
+    if (status === 'cancelled' && (order?.clover_order_id || order?.payment_method === 'online')) {
+      try {
+        await fetch(`${ENV.cloverBackendUrl}/api/orders/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId,
+            cloverMerchantId: ENV.cloverMerchantId,
+            onlyClover: true,
+          }),
+        });
+      } catch (cloverErr) {
+        console.error('Clover cancel failed', cloverErr);
+      }
+    }
+
     const cfg = getLoyaltyConfig();
     if (cfg && order?.customer_phone) {
       const field = getLoyaltyProgressField(cfg);
@@ -1353,7 +1466,10 @@ async function moveOrder(orderId, status) {
         if (hadReward) await adjustLoyaltyProgress(order.customer_phone, field, +threshold, { optInOnly: true });
       }
     }
-    showToast(`Moved ${orderId} → ${status.replace(/_/g,' ')}`);
+    const toastMsg = status === 'cancelled'
+      ? `Cancelled ${orderId} — Clover sandbox cancel attempted`
+      : `Moved ${orderId} → ${status.replace(/_/g,' ')}`;
+    showToast(toastMsg);
     renderOwnerOrders();
   } catch (e) { showToast('Update failed: ' + e.message); }
 }
@@ -1363,7 +1479,10 @@ async function deleteOwnerOrder(orderId) {
     const resp = await fetch(`${ENV.cloverBackendUrl}/api/orders/delete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId }),
+      body: JSON.stringify({
+        orderId,
+        cloverMerchantId: ENV.cloverMerchantId,
+      }),
     });
     const text = await resp.text();
     if (!resp.ok) throw new Error(text || `Delete failed (${resp.status})`);

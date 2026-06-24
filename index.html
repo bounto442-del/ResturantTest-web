@@ -271,6 +271,7 @@
           <h1 class="confirm-title">Order Placed!</h1>
           <p class="confirm-id">Order ID: <strong id="confirm-id">--</strong></p>
           <p class="confirm-id hidden" id="confirm-clover-wrap">🍀 Clover POS ID: <strong id="confirm-clover-id">--</strong></p>
+          <p class="confirm-id hidden" id="confirm-payment-wrap">Payment: <strong id="confirm-payment-status">Pending</strong></p>
           <p class="confirm-msg">We've got your order and are firing up the kitchen. You can track it live below.</p>
           <div class="confirm-actions">
             <button class="btn btn-primary btn-lg" onclick="startTrackingFromConfirm()">
@@ -279,6 +280,12 @@
             <button class="btn btn-outline" onclick="navigateTo('home')">
               <i class="fas fa-utensils"></i> Order More
             </button>
+          </div>
+          <div class="confirm-simulate">
+            <button id="simulate-paid-btn" class="btn btn-secondary btn-sm" onclick="simulateMarkPaid()">
+              <i class="fas fa-check-circle"></i> Simulate: Mark as Paid
+            </button>
+            <p class="simulate-note">Demo only — simulates a successful payment.</p>
           </div>
         </div>
       </div>
@@ -584,9 +591,9 @@
     <div id="diag-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f3460;color:#fff;padding:10px 16px;font-family:monospace;font-size:13px;display:none;">
       <span id="diag-text">Testing connection...</span>
     </div>
-    <script src="config.js?v=17"></script>
-    <script src="app.js?v=17"></script>
-    <script src="clover.js?v=7"></script>
+    <script src="config.js?v=18"></script>
+    <script src="app.js?v=18"></script>
+    <script src="clover.js?v=8"></script>
     <script>
       // Diagnostic fetch test — runs after config.js so ENV is available.
       (async function diag() {
