@@ -5,6 +5,7 @@
 
 const CLOVER_BACKEND = (typeof ENV !== 'undefined' && ENV.cloverBackendUrl) || 'http://localhost:3000';
 const CLOVER_MERCHANT_KEY = 'clover_merchant_id';
+const CLOVER_MERCHANT_UUID_KEY = 'clover_merchant_uuid';
 const CLOVER_DEFAULT_DEVICE_KEY = 'clover_default_device_id';
 
 function getCloverMerchantId() {
@@ -15,6 +16,17 @@ function setCloverMerchantId(id) {
   try {
     if (id) localStorage.setItem(CLOVER_MERCHANT_KEY, id);
     else localStorage.removeItem(CLOVER_MERCHANT_KEY);
+  } catch {}
+}
+
+function getCloverMerchantUuid() {
+  try { return localStorage.getItem(CLOVER_MERCHANT_UUID_KEY); } catch { return null; }
+}
+
+function setCloverMerchantUuid(id) {
+  try {
+    if (id) localStorage.setItem(CLOVER_MERCHANT_UUID_KEY, id);
+    else localStorage.removeItem(CLOVER_MERCHANT_UUID_KEY);
   } catch {}
 }
 
@@ -57,6 +69,7 @@ async function connectWithToken(cloverMerchantId, apiToken, ecommercePrivateToke
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Token connection failed');
   setCloverMerchantId(cloverMerchantId);
+  if (data.merchantUuid) setCloverMerchantUuid(data.merchantUuid);
   return data;
 }
 
@@ -70,6 +83,7 @@ async function disconnectClover() {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Disconnect failed');
   setCloverMerchantId(null);
+  setCloverMerchantUuid(null);
   setCloverDefaultDeviceId(null);
   return data;
 }
@@ -135,8 +149,10 @@ async function pushOrderToClover(order) {
 function parseCloverCallback() {
   const params = new URLSearchParams(window.location.search);
   const merchantId = params.get('merchant_id');
+  const merchantUuid = params.get('merchant_uuid');
   if (merchantId) {
     setCloverMerchantId(merchantId);
+    if (merchantUuid) setCloverMerchantUuid(merchantUuid);
     // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
     return merchantId;
@@ -160,6 +176,7 @@ window.Clover = {
   pushMenu: pushMenuToClover,
   pushOrder: pushOrderToClover,
   getMerchantId: getCloverMerchantId,
+  getMerchantUuid: getCloverMerchantUuid,
   getDefaultDeviceId: getCloverDefaultDeviceId,
   setDefaultDeviceId: setCloverDefaultDeviceId,
   isConnected: isCloverConnected,

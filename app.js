@@ -1664,6 +1664,8 @@ async function saveMenu(id) {
     sauces: document.getElementById('m-edit-sauces').value.split(',').map(s => s.trim()).filter(Boolean),
     addons: parseAddons(document.getElementById('m-edit-addons').value),
   };
+  const merchantUuid = window.Clover && Clover.getMerchantUuid ? Clover.getMerchantUuid() : null;
+  if (merchantUuid) payload.merchant_id = merchantUuid;
   try {
     if (id) {
       await sbPatchO(`${TABLE_MENU}?id=eq.${id}`, payload);
